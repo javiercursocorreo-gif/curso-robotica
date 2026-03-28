@@ -90,10 +90,9 @@ footer{text-align:center;padding:28px 0;border-top:1px solid var(--border);
   </header>
 
   <div class="legend">
-    <div class="leg-item"><div class="leg-dot p"></div>Práctica Word</div>
     <div class="leg-item"><div class="leg-dot j"></div>Juego interactivo</div>
     <div class="leg-item"><div class="leg-dot s"></div>Simulación animada</div>
-    <div class="leg-item"><div class="leg-dot d"></div>Prompt IA</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#444"></div>Pendiente</div>
   </div>
 
   <div id="courseIndex"></div>
@@ -255,12 +254,9 @@ function btn(label, href, type) {
 
 function renderClass(cl) {
   var files = '';
-  if (cl.juego)     files += btn('🎮 JUEGO', cl.juego, 'juego');
-  if (cl.simulacion)files += btn('🔬 SIMULACIÓN', cl.simulacion, 'simulacion');
-  if (cl.practica)  files += btn('📄 PRÁCTICA', cl.practica, 'practica');
-  if (cl.promptJ)   files += btn('🤖 PROMPT JUEGO', cl.promptJ, 'prompt');
-  if (cl.promptS)   files += btn('🤖 PROMPT SIM', cl.promptS, 'prompt');
-  if (!cl.juego && !cl.simulacion && !cl.practica) {
+  if (cl.juego)      files += btn('🎮 JUEGO', cl.juego, 'juego');
+  if (cl.simulacion) files += btn('🔬 SIMULACIÓN', cl.simulacion, 'simulacion');
+  if (!cl.juego && !cl.simulacion) {
     files += '<span class="file-btn pending">⏳ Pendiente de generación</span>';
   }
   return '<div class="class-row">'
