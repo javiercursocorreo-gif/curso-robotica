@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.7 Juego - Puente H L293D: Arrastra la tabla de verdad</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09100d;--panel:#0d1a10;--panel2:#111f14;--amber:#f0b830;--amber2:#c8950a;--green:#1aaa3a;--green2:#0d7a25;--red:#cc2222;--dim:#3a5c3e;--text:#c8e8c2;--textdim:#5a8060;--border:#1e3d22;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);}
+.page{max-width:900px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Orbitron',monospace;font-size:17px;color:var(--amber);letter-spacing:2px;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--amber);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--amber);}
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);padding:12px 16px;margin-bottom:24px;}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sl{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.sv{font-family:'Orbitron',monospace;font-size:22px;}
+.sv.pts{color:var(--amber);}.sv.ok{color:var(--green);}.sv.fail{color:var(--red);}
+.pw{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.pl{font-size:10px;color:var(--textdim);}
+.pb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pf{height:100%;background:var(--amber);transition:width .4s;}
+.round-hdr{font-family:'Orbitron',monospace;font-size:11px;color:var(--amber);letter-spacing:3px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.q-label{font-size:14px;color:var(--amber);margin-bottom:16px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--amber);padding:12px 16px;line-height:1.5;}
+.cards-pool{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;min-height:60px;background:var(--panel2);border:1px solid var(--border);padding:14px;}
+.card{background:var(--panel);border:1.5px solid var(--dim);color:var(--amber);font-family:'Share Tech Mono',monospace;font-size:13px;padding:10px 16px;cursor:grab;transition:border-color .15s;user-select:none;touch-action:none;}
+.card:hover{border-color:var(--amber);}
+.card.dragging{opacity:0.4;}
+.zones{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+@media(max-width:560px){.zones{grid-template-columns:1fr;}}
+.drop-zone{background:var(--panel2);border:2px dashed var(--border);padding:12px 14px;min-height:68px;transition:border-color .15s;}
+.drop-zone.drag-over{border-color:var(--amber);}
+.drop-zone.correct{border-color:var(--green);background:#071a0a;}
+.drop-zone.wrong{border-color:var(--red);background:#1a0505;}
+.zone-label{font-size:11px;color:var(--textdim);letter-spacing:1px;margin-bottom:8px;}
+.zone-content{min-height:36px;display:flex;align-items:center;}
+.hint{font-size:11px;color:var(--red);margin-top:6px;min-height:14px;}
+.fb-box{padding:14px 18px;border-left:4px solid;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+.fb-box.show{display:block;}
+.fb-box.ok{border-color:var(--green);background:#071a0a;color:#7eff9a;}
+.fb-box.ko{border-color:var(--red);background:#1a0505;color:#ff8888;}
+.fb-title{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;margin-bottom:5px;}
+.btn-check{width:100%;background:var(--amber2);border:1px solid var(--amber);color:#000;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px;cursor:pointer;transition:background .2s;margin-bottom:10px;}
+.btn-check:hover{background:var(--amber);}
+.btn-next{display:none;width:100%;background:var(--green2);border:1px solid var(--green);color:#fff;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px;cursor:pointer;}
+.btn-next:hover{background:var(--green);}
+.btn-next.show{display:block;}
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Orbitron',monospace;font-size:56px;color:var(--amber);margin-bottom:8px;}
+.res-title{font-family:'Orbitron',monospace;font-size:20px;color:var(--green);margin-bottom:12px;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.rs{text-align:center;}.rsv{font-family:'Orbitron',monospace;font-size:28px;}
+.g{color:var(--green);}.r{color:var(--red);}.a{color:var(--amber);}
+.rsl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--amber2);border:1px solid var(--amber);color:#000;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px 32px;cursor:pointer;}
+.btn-restart:hover{background:var(--amber);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Cambio de sentido con puente H L293D</h1>
+    <p class="hsub">Clase 1.7 — Arrastra la tabla de verdad del puente H</p>
+  </header>
+  <div class="instr"><span>Instrucciones:</span> Arrastra cada resultado al estado de señal que lo produce. <span>+80 pts</span> por acierto · <span>−10 pts</span> por fallo.</div>
+  <div class="score-bar">
+    <div class="si"><span class="sl">PUNTOS</span><span class="sv pts" id="pts">0</span></div>
+    <div class="si"><span class="sl">ACIERTOS</span><span class="sv ok" id="ok">0</span></div>
+    <div class="si"><span class="sl">FALLOS</span><span class="sv fail" id="fail">0</span></div>
+    <div class="pw"><div class="pl" id="pl">Ronda 1 de 3</div><div class="pb"><div class="pf" id="pf" style="width:0%"></div></div></div>
+  </div>
+  <div id="gameArea">
+    <div class="round-hdr" id="rhdr">RONDA 01 / 03</div>
+    <div class="q-label" id="qlabel"></div>
+    <div class="cards-pool" id="pool"></div>
+    <div class="zones" id="zones"></div>
+    <div class="fb-box" id="fb"><div class="fb-title" id="fbt"></div><div id="fbm"></div></div>
+    <button class="btn-check" onclick="checkRound()">VERIFICAR RESPUESTAS</button>
+    <button class="btn-next" id="btnNext" onclick="nextRound()">SIGUIENTE RONDA ›</button>
+  </div>
+  <div class="results-card" id="rc">
+    <div class="res-pct" id="rpct"></div>
+    <div class="res-title" id="rtitle"></div>
+    <div class="res-msg" id="rmsg"></div>
+    <div class="res-stats">
+      <div class="rs"><div class="rsv a" id="rpts"></div><div class="rsl">PUNTOS</div></div>
+      <div class="rs"><div class="rsv g" id="rok"></div><div class="rsl">ACIERTOS</div></div>
+      <div class="rs"><div class="rsv r" id="rfail"></div><div class="rsl">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+<script>
+var ROUNDS=[
+  {q:"RONDA 1: Arrastra el resultado del motor al estado de señales IN1 e IN2 que lo produce",
+   cards:[{id:'a',text:'Motor gira sentido horario'},{id:'b',text:'Motor gira sentido antihorario'},{id:'c',text:'Motor parado (sin corriente)'},{id:'d',text:'Canal bloqueado (combinación inválida)'}],
+   zones:[
+     {id:'z1',label:'IN1 = HIGH · IN2 = LOW',correct:'a',hint:'Sentido horario: IN1 alto activa el transistor superior del lado A'},
+     {id:'z2',label:'IN1 = LOW · IN2 = HIGH',correct:'b',hint:'Sentido antihorario: IN2 alto activa el transistor superior del lado B'},
+     {id:'z3',label:'IN1 = LOW · IN2 = LOW',correct:'c',hint:'Ambas entradas bajas: ningún transistor conduce, el motor queda libre'},
+     {id:'z4',label:'IN1 = HIGH · IN2 = HIGH',correct:'d',hint:'Ambas entradas altas: el L293D bloquea la salida para evitar cortocircuito interno'},
+   ],
+   fb_ok:'Perfecto. Esa es la tabla de verdad completa del canal A del L293D. Memoriza especialmente que IN1=HIGH IN2=HIGH es inválido.',
+   fb_ko:'Revisa la tabla de verdad. LOW-LOW=parado, HIGH-LOW=sentido A, LOW-HIGH=sentido B, HIGH-HIGH=bloqueado.'},
+  {q:"RONDA 2: Arrastra cada pin del L293D a su función correcta en el circuito de la clase 1.7",
+   cards:[{id:'p1',text:'Pin 1 (Enable 1-2)'},{id:'p2',text:'Pin 8 (VCC2)'},{id:'p3',text:'Pin 16 (VCC1)'},{id:'p4',text:'Pines 4,5,12,13 (GND)'}],
+   zones:[
+     {id:'z1',label:'Habilita el canal A. Debe estar en HIGH para que el canal funcione.',correct:'p1',hint:'Sin Enable en HIGH, el L293D no activa ninguna salida del canal A'},
+     {id:'z2',label:'Alimentación de los motores (9V de la pila). Hasta 36V.',correct:'p2',hint:'Separado de la lógica para proteger el control de los picos del motor'},
+     {id:'z3',label:'Alimentación de la lógica interna (5V de Arduino).',correct:'p3',hint:'La lógica interna del L293D funciona a 5V, compatible con Arduino'},
+     {id:'z4',label:'Masa del integrado. Conectar todos al carril negativo (−).',correct:'p4',hint:'Hay 4 pines GND en el L293D; todos deben ir a GND para que el chip disipe calor'},
+   ],
+   fb_ok:'Excelente. Conoces bien los pines más importantes del L293D. El pin Enable y la alimentación separada VCC2 son los más críticos.',
+   fb_ko:'Repasa los pines del L293D: Enable habilita el canal, VCC2 alimenta motores, VCC1 la lógica, GND la masa.'},
+  {q:"RONDA 3: Arrastra cada ventaja al tipo de control que la describe",
+   cards:[{id:'v1',text:'Puede cambiar la velocidad y el sentido desde el código sin tocar el circuito'},{id:'v2',text:'Funciona de forma autónoma sin ningún programa ejecutándose'},{id:'v3',text:'Permite coordinar múltiples motores con secuencias complejas'},{id:'v4',text:'Muy estable y robusto, ideal para sistemas de velocidad fija'}],
+   zones:[
+     {id:'z1',label:'Control por SOFTWARE (Arduino)',correct:'v1',hint:'analogWrite() y digitalWrite() permiten cambiar todo desde el código'},
+     {id:'z2',label:'Control por HARDWARE (NE555 + potenciómetro)',correct:'v2',hint:'El NE555 oscila sin necesitar que un programa se ejecute'},
+     {id:'z3',label:'Control BIDIRECCIONAL (Arduino + L293D)',correct:'v3',hint:'El puente H con Arduino permite secuencias avanzar/retroceder programadas'},
+     {id:'z4',label:'Control ON/OFF automático (NE555 astable, clase 1.4)',correct:'v4',hint:'El NE555 astable genera siempre la misma señal, muy predecible'},
+   ],
+   fb_ok:'Perfecto. Has relacionado correctamente cada tipo de control con sus ventajas. Esto resume toda la progresión del Capítulo 1.',
+   fb_ko:'Repasa las diferencias entre los tipos de control del Capítulo 1. Cada uno tiene su punto fuerte según la aplicación.'}
+];
+var state={round:0,pts:0,ok:0,fail:0,verified:false};
+var draggingId=null,touchClone=null,placed={};
+function shuffle(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function init(){state={round:0,pts:0,ok:0,fail:0,verified:false};placed={};document.getElementById('rc').classList.remove('show');document.getElementById('gameArea').style.display='';renderRound();}
+function renderRound(){
+  state.verified=false;placed={};
+  var R=ROUNDS[state.round];
+  document.getElementById('rhdr').textContent='RONDA '+String(state.round+1).padStart(2,'0')+' / 03';
+  document.getElementById('qlabel').textContent=R.q;
+  document.getElementById('pl').textContent='Ronda '+(state.round+1)+' de 3';
+  document.getElementById('pf').style.width=((state.round/3)*100)+'%';
+  var pool=document.getElementById('pool');pool.innerHTML='';
+  shuffle(R.cards).forEach(function(c){pool.appendChild(makeCard(c.id,c.text));});
+  var zonesEl=document.getElementById('zones');zonesEl.innerHTML='';
+  R.zones.forEach(function(z){
+    var div=document.createElement('div');div.className='drop-zone';div.id=z.id;
+    div.innerHTML='<div class="zone-label">'+z.label+'</div><div class="zone-content" id="zc-'+z.id+'"></div><div class="hint" id="hint-'+z.id+'"></div>';
+    div.addEventListener('dragover',function(e){e.preventDefault();div.classList.add('drag-over');});
+    div.addEventListener('dragleave',function(){div.classList.remove('drag-over');});
+    div.addEventListener('drop',function(e){e.preventDefault();div.classList.remove('drag-over');if(draggingId)placeCard(draggingId,z.id);});
+    zonesEl.appendChild(div);
+  });
+  document.getElementById('fb').classList.remove('show','ok','ko');
+  document.getElementById('btnNext').classList.remove('show');
+  document.querySelector('.btn-check').style.display='';
+  updateScore();
+}
+function makeCard(id,text){
+  var el=document.createElement('div');el.className='card';el.id='card-'+id;el.textContent=text;
+  el.setAttribute('draggable','true');
+  el.addEventListener('dragstart',function(e){draggingId=id;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+  el.addEventListener('dragend',function(){el.classList.remove('dragging');draggingId=null;});
+  el.addEventListener('touchstart',function(e){
+    e.preventDefault();draggingId=id;el.style.opacity='0.35';
+    var t=e.touches[0];touchClone=document.createElement('div');
+    touchClone.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:#111f14;border:1.5px solid #f0b830;color:#f0b830;font-family:Share Tech Mono,monospace;font-size:13px;padding:10px 16px;max-width:280px;';
+    touchClone.textContent=text.substring(0,50);
+    touchClone.style.left=(t.clientX-80)+'px';touchClone.style.top=(t.clientY-25)+'px';
+    document.body.appendChild(touchClone);
+  },{passive:false});
+  el.addEventListener('touchmove',function(e){
+    e.preventDefault();if(!touchClone)return;
+    var t=e.touches[0];touchClone.style.left=(t.clientX-80)+'px';touchClone.style.top=(t.clientY-25)+'px';
+    document.querySelectorAll('.drop-zone').forEach(function(z){z.classList.remove('drag-over');});
+    var els=document.elementsFromPoint(t.clientX,t.clientY);
+    for(var i=0;i<els.length;i++){var z=els[i].closest&&els[i].closest('.drop-zone');if(z){z.classList.add('drag-over');break;}}
+  },{passive:false});
+  el.addEventListener('touchend',function(e){
+    if(touchClone){touchClone.remove();touchClone=null;}el.style.opacity='';
+    document.querySelectorAll('.drop-zone').forEach(function(z){z.classList.remove('drag-over');});
+    var t=e.changedTouches[0],els=document.elementsFromPoint(t.clientX,t.clientY),zid=null;
+    for(var i=0;i<els.length;i++){var z=els[i].closest&&els[i].closest('.drop-zone');if(z){zid=z.id;break;}}
+    if(zid)placeCard(id,zid);draggingId=null;
+  });
+  return el;
+}
+function placeCard(cid,zid){
+  if(state.verified)return;
+  if(placed[zid]){var old=placed[zid];var R=ROUNDS[state.round];var cd=R.cards.find(function(c){return c.id===old;});document.getElementById('pool').appendChild(makeCard(old,cd?cd.text:old));}
+  for(var z in placed){if(placed[z]===cid){delete placed[z];document.getElementById('zc-'+z).innerHTML='';break;}}
+  var pc=document.getElementById('card-'+cid);if(pc)pc.remove();
+  placed[zid]=cid;
+  var R=ROUNDS[state.round];var cd=R.cards.find(function(c){return c.id===cid;});
+  var zc=document.getElementById('zc-'+zid);zc.innerHTML='';
+  var ce=makeCard(cid,cd?cd.text:cid);ce.style.cursor='pointer';ce.title='Clic para devolver';
+  ce.onclick=function(){if(!state.verified){delete placed[zid];zc.innerHTML='';document.getElementById('pool').appendChild(makeCard(cid,cd?cd.text:cid));}};
+  zc.appendChild(ce);
+}
+function checkRound(){
+  if(!Object.keys(placed).length){showFb(false,'⚠ ATENCIÓN','Coloca al menos un componente antes de verificar.');return;}
+  state.verified=true;document.querySelector('.btn-check').style.display='none';
+  var R=ROUNDS[state.round];var allOk=true;
+  R.zones.forEach(function(z){
+    var zEl=document.getElementById(z.id);var got=placed[z.id];
+    if(got===z.correct){zEl.classList.add('correct');state.pts=Math.max(0,state.pts+80);state.ok++;}
+    else{zEl.classList.add('wrong');state.pts=Math.max(0,state.pts-10);state.fail++;allOk=false;document.getElementById('hint-'+z.id).textContent='→ '+z.hint;}
+  });
+  showFb(allOk,allOk?'✓ RONDA COMPLETADA':'✗ REVISA LOS ERRORES',allOk?R.fb_ok:R.fb_ko);
+  updateScore();setTimeout(function(){document.getElementById('btnNext').classList.add('show');},1800);
+}
+function showFb(ok,t,m){var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');document.getElementById('fbt').textContent=t;document.getElementById('fbm').textContent=m;fb.classList.add('show',ok?'ok':'ko');}
+function updateScore(){document.getElementById('pts').textContent=state.pts;document.getElementById('ok').textContent=state.ok;document.getElementById('fail').textContent=state.fail;}
+function nextRound(){state.round++;document.getElementById('btnNext').classList.remove('show');if(state.round>=3){showResults();return;}renderRound();}
+function showResults(){
+  document.getElementById('gameArea').style.display='none';document.getElementById('rc').classList.add('show');
+  var maxPts=ROUNDS.reduce(function(s,r){return s+r.zones.length*80;},0);
+  var pct=Math.min(100,Math.max(0,Math.round(state.pts/maxPts*100)));
+  document.getElementById('rpct').textContent=pct+'%';document.getElementById('rpts').textContent=state.pts;
+  document.getElementById('rok').textContent=state.ok;document.getElementById('rfail').textContent=state.fail;
+  var t,m;
+  if(pct>=85){t='🏆 CAPÍTULO 1 DOMINADO';m='Has completado el repaso del puente H y el resumen del Capítulo 1. Estás listo para el Capítulo 2.';}
+  else if(pct>=65){t='✅ Resultado superado';m='Buen trabajo. Repasa la tabla de verdad del L293D y los pines antes de continuar.';}
+  else if(pct>=45){t='📖 Buen intento';m='Repasa la teoría de la clase 1.7, especialmente la tabla de verdad del puente H.';}
+  else{t='💪 ¡Ánimo!';m='Repasa la teoría con calma y vuelve a intentarlo.';}
+  document.getElementById('rtitle').textContent=t;document.getElementById('rmsg').textContent=m;
+  document.getElementById('pf').style.width='100%';document.getElementById('pl').textContent='¡Capítulo 1 completado!';
+}
+function restart(){init();}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.6 Quiz - Control de velocidad 555 PWM Hardware</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080f;--panel:#0d1117;--panel2:#111520;--p1:#3b82f6;--p2:#f59e0b;--p3:#10b981;--p4:#ef4444;--text:#c8d8f0;--textdim:#445566;--border:#1a2535;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--p1);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:18px;color:var(--p2);font-weight:700;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--p2);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--p2);}
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);padding:12px 16px;margin-bottom:24px;}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sl{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.sv{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;}
+.sv.pts{color:var(--p2);}.sv.ok{color:var(--p3);}.sv.fail{color:var(--p4);}
+.pw{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.pl{font-size:10px;color:var(--textdim);}
+.pb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pf{height:100%;background:var(--p2);transition:width .4s;}
+.q-card{background:var(--panel);border:1px solid var(--border);padding:22px 18px;margin-bottom:16px;}
+.q-num{font-size:10px;color:var(--p2);letter-spacing:3px;margin-bottom:10px;}
+.q-text{font-family:'Syne',sans-serif;font-size:16px;color:var(--p2);line-height:1.55;font-weight:400;}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+@media(max-width:540px){.options{grid-template-columns:1fr;}}
+.opt{background:var(--panel2);border:1.5px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:13px 15px;text-align:left;cursor:pointer;transition:border-color .15s,background .15s;line-height:1.4;}
+.opt:hover:not(:disabled){border-color:var(--p2);background:#1a1500;}
+.opt .ok{color:var(--p2);margin-right:6px;font-weight:700;font-size:11px;}
+.opt.correct{border-color:var(--p3);background:#021a0c;color:#80ffbb;}
+.opt.wrong{border-color:var(--p4);background:#1a0305;color:#ffaaaa;}
+.fb-box{padding:13px 17px;border-left:4px solid;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+.fb-box.show{display:block;}
+.fb-box.ok{border-color:var(--p3);background:#021a0c;color:#80ffbb;}
+.fb-box.ko{border-color:var(--p4);background:#1a0305;color:#ffaaaa;}
+.fb-title{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:2px;font-weight:700;margin-bottom:5px;}
+.btn-next{display:none;width:100%;background:#0d3a1c;border:1px solid var(--p3);color:var(--p3);font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px;cursor:pointer;}
+.btn-next:hover{background:var(--p3);color:#000;}
+.btn-next.show{display:block;}
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Syne',sans-serif;font-size:56px;font-weight:700;color:var(--p2);margin-bottom:8px;}
+.res-title{font-family:'Syne',sans-serif;font-size:22px;color:var(--p3);margin-bottom:12px;font-weight:700;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.rs{text-align:center;}.rsv{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;}
+.g{color:var(--p3);}.r{color:var(--p4);}.a{color:var(--p2);}
+.rsl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--p2);border:none;color:#000;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px 32px;cursor:pointer;}
+.btn-restart:hover{filter:brightness(1.1);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Control de velocidad por hardware (555 PWM)</h1>
+    <p class="hsub">Clase 1.6 — Quiz de conceptos y circuito</p>
+  </header>
+  <div class="instr"><span>Instrucciones:</span> Lee cada pregunta y selecciona la opción correcta. <span>+100 pts</span> primer intento · <span>+50 pts</span> reintento · <span>−10 pts</span> fallo.</div>
+  <div class="score-bar">
+    <div class="si"><span class="sl">PUNTOS</span><span class="sv pts" id="pts">0</span></div>
+    <div class="si"><span class="sl">ACIERTOS</span><span class="sv ok" id="ok">0</span></div>
+    <div class="si"><span class="sl">FALLOS</span><span class="sv fail" id="fail">0</span></div>
+    <div class="pw"><div class="pl" id="pl">Pregunta 1 de 10</div><div class="pb"><div class="pf" id="pf" style="width:0%"></div></div></div>
+  </div>
+  <div id="gameArea">
+    <div class="q-card"><div class="q-num" id="qnum">PREGUNTA 01 / 10</div><div class="q-text" id="qtext"></div></div>
+    <div class="options" id="options"></div>
+    <div class="fb-box" id="fb"><div class="fb-title" id="fbt"></div><div id="fbm"></div></div>
+    <button class="btn-next" id="btnNext" onclick="nextQ()">SIGUIENTE PREGUNTA ›</button>
+  </div>
+  <div class="results-card" id="rc">
+    <div class="res-pct" id="rpct"></div>
+    <div class="res-title" id="rtitle"></div>
+    <div class="res-msg" id="rmsg"></div>
+    <div class="res-stats">
+      <div class="rs"><div class="rsv a" id="rpts"></div><div class="rsl">PUNTOS</div></div>
+      <div class="rs"><div class="rsv g" id="rok"></div><div class="rsl">ACIERTOS</div></div>
+      <div class="rs"><div class="rsv r" id="rfail"></div><div class="rsl">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+<script>
+var QS=[
+  {q:"¿Cuál es la diferencia principal entre controlar la velocidad por hardware (clase 1.6) y por software (clase 1.5)?",
+   opts:["En hardware el control se hace con un potenciómetro y el NE555 sin ningún programa; en software se hace con analogWrite() de Arduino","En hardware el motor va más rápido; en software va más lento","El control por hardware solo funciona en Tinkercad; el de software solo en la realidad","Solo el control por software usa transistor; el de hardware no necesita transistor"],
+   c:0,fb:"La diferencia fundamental es el origen de la señal PWM. En hardware, el NE555 con potenciómetro genera la señal de forma autónoma sin ningún programa. En software, Arduino ejecuta instrucciones de código para generar la señal. El resultado visible en el motor es equivalente."},
+  {q:"¿Qué componente se añade en la clase 1.6 para hacer variable el ciclo de trabajo del NE555?",
+   opts:["Un condensador de mayor capacidad","Un segundo transistor NPN BJT","Un potenciómetro de 100 kΩ que sustituye a R4 en la red de temporización","Una resistencia fija de mayor valor en el pin 7"],
+   c:2,fb:"El potenciómetro de 100 kΩ sustituye a la resistencia fija R4. Al girar el eje, se modifica la resistencia de descarga del condensador C1, cambiando el tiempo que la señal permanece en nivel bajo y, por tanto, el ciclo de trabajo."},
+  {q:"¿Qué hace el potenciómetro en el circuito de la clase 1.6?",
+   opts:["Controla directamente la tensión de alimentación del motor","Modifica el tiempo de descarga de C1, cambiando el ciclo de trabajo de la señal del NE555","Amplifica la señal del pin 3 antes de llegar a la Base del transistor","Filtra el ruido en el pin 5 (CONTROL) del NE555"],
+   c:1,fb:"El potenciómetro actúa como reóstato en la red de temporización. Al variar su resistencia, se modifica el tiempo que tarda C1 en descargarse a través del pin 7. Esto cambia el ciclo de trabajo de la señal en el pin 3 y, con ello, la velocidad del motor."},
+  {q:"Si se gira el potenciómetro para aumentar su resistencia, ¿qué ocurre con la velocidad del motor?",
+   opts:["La velocidad aumenta porque llega más corriente al motor","La velocidad disminuye porque el tiempo de descarga de C1 es mayor y el ciclo de trabajo baja","La velocidad no cambia porque el transistor limita la corriente","El motor se detiene completamente"],
+   c:1,fb:"Al aumentar la resistencia del potenciómetro, C1 tarda más en descargarse. Esto prolonga el tiempo de nivel bajo (OFF) en la señal del NE555, reduciendo el ciclo de trabajo. El transistor conduce menos tiempo por ciclo y el motor recibe menos corriente media."},
+  {q:"¿Cuál es la diferencia entre el circuito de la clase 1.4 y el de la clase 1.6?",
+   opts:["En la clase 1.4 hay Arduino y en la 1.6 no","En la clase 1.4 el ciclo de trabajo es fijo (R4 fija); en la 1.6 es variable (potenciómetro en lugar de R4)","En la clase 1.4 el motor gira lento; en la 1.6 gira rápido","En la clase 1.6 se añade un segundo NE555"],
+   c:1,fb:"La única diferencia entre los dos circuitos es que la resistencia fija R4 se sustituye por un potenciómetro. En la clase 1.4 el ciclo de trabajo y la velocidad son fijos; en la 1.6 son variables gracias al potenciómetro."},
+  {q:"¿Qué terminal del potenciómetro se conecta al pin 7 (DISCHARGE) del NE555?",
+   opts:["El terminal central (cursor)","El terminal fijo 2 (cortocircuitado con el cursor)","El terminal fijo 1","Cualquiera de los tres terminales equivale al mismo resultado"],
+   c:2,fb:"El terminal fijo 1 del potenciómetro se conecta al pin 7 (DISCHARGE). El terminal central (cursor) se conecta al nodo T (pin 2 = pin 6). El terminal fijo 2 se cortocircuita con el cursor para usar el potenciómetro como reóstato de dos terminales."},
+  {q:"¿Por qué el control por hardware es preferible cuando no se dispone de microcontrolador?",
+   opts:["Porque el motor funciona a mayor tensión sin microcontrolador","Porque el circuito funciona de forma autónoma desde el momento en que hay alimentación, sin necesidad de cargar ni ejecutar ningún programa","Porque el diodo flyback no es necesario en control por hardware","Porque el NE555 consume menos energía que Arduino"],
+   c:1,fb:"El control por hardware es autónomo: no necesita tiempo de arranque, no depende de que un programa se ejecute correctamente, y no puede fallar por un error de software. Es ideal para sistemas simples donde la velocidad de control es constante o se ajusta manualmente."},
+  {q:"¿Qué ocurre si se desconecta el condensador C1 del circuito de la clase 1.6?",
+   opts:["El motor gira a velocidad máxima porque ya no hay temporización","El NE555 deja de oscilar porque C1 es imprescindible para el ciclo de carga y descarga","El potenciómetro pierde su efecto y la velocidad queda fija","R3 comienza a controlar el ciclo de trabajo por sí sola"],
+   c:1,fb:"C1 es el condensador de temporización. Sin él, el NE555 no puede completar los ciclos de carga y descarga que generan la señal oscilante. El pin 3 (OUTPUT) deja de cambiar de estado y el motor se detiene o queda en un estado indefinido."},
+  {q:"¿En qué aplicación real sería más adecuado usar control por hardware (NE555 + potenciómetro) en lugar de Arduino?",
+   opts:["En un robot autónomo que debe cambiar su velocidad según los obstáculos detectados","En un sistema sencillo de extracción de aire donde el usuario regula la velocidad con un mando físico y la velocidad no necesita cambiar por software","En un sistema de control industrial con múltiples motores que necesitan sincronización","En un sistema de aprendizaje automático que ajusta la velocidad según la temperatura"],
+   c:1,fb:"El control por hardware es ideal para sistemas simples, estables y de ajuste manual. Un extractor de aire con un mando de velocidad es el caso perfecto: el usuario gira un potenciómetro y el sistema responde sin ningún programa. No necesita la complejidad de un microcontrolador."},
+  {q:"¿Qué tipo de control produce una señal PWM con ciclo de trabajo continuo y analógico (sin pasos discretos)?",
+   opts:["El control por software con analogWrite() en Arduino, que tiene 256 niveles discretos","El control por hardware con NE555 y potenciómetro, donde el ciclo varía de forma continua al girar el eje","Ambos producen exactamente el mismo tipo de señal continua","Ninguno produce señal continua: ambos trabajan con pasos discretos"],
+   c:1,fb:"El potenciómetro es un componente analógico: al girar el eje, la resistencia varía de forma continua (no en pasos). Esto produce un ciclo de trabajo que también varía de forma continua. En cambio, analogWrite() de Arduino trabaja con 256 niveles discretos (0-255)."}
+];
+var state={cur:0,pts:0,ok:0,fail:0,firstTry:true,answered:false};
+var qOrder=[];
+function shuffle(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function init(){state={cur:0,pts:0,ok:0,fail:0};qOrder=shuffle([0,1,2,3,4,5,6,7,8,9]);document.getElementById('rc').classList.remove('show');document.getElementById('gameArea').style.display='';renderQ();}
+function renderQ(){
+  state.answered=false;state.firstTry=true;
+  var qi=qOrder[state.cur];var Q=QS[qi];
+  document.getElementById('qnum').textContent='PREGUNTA '+String(state.cur+1).padStart(2,'0')+' / 10';
+  document.getElementById('qtext').textContent=Q.q;
+  document.getElementById('pl').textContent='Pregunta '+(state.cur+1)+' de 10';
+  document.getElementById('pf').style.width=((state.cur/10)*100)+'%';
+  var letters=['A','B','C','D'];
+  var idxs=shuffle([0,1,2,3]);
+  var opts=document.getElementById('options');opts.innerHTML='';
+  idxs.forEach(function(oi,pos){
+    var btn=document.createElement('button');
+    btn.className='opt';
+    btn.innerHTML='<span class="ok">'+letters[pos]+'.</span>'+Q.opts[oi];
+    btn.onclick=(function(b,i){return function(){selectOpt(b,i);};})(btn,oi);
+    opts.appendChild(btn);
+  });
+  document.getElementById('fb').classList.remove('show','ok','ko');
+  document.getElementById('btnNext').classList.remove('show');
+  updateScore();
+}
+function selectOpt(btn,oi){
+  if(state.answered)return;
+  var qi=qOrder[state.cur];var Q=QS[qi];
+  if(oi===Q.c){
+    state.answered=true;
+    document.querySelectorAll('.opt').forEach(function(b){b.disabled=true;});
+    btn.classList.add('correct');
+    var earned=state.firstTry?100:50;
+    state.pts=Math.max(0,state.pts+earned);state.ok++;
+    showFb(true,'✓ CORRECTO — +'+earned+' pts',Q.fb);
+    setTimeout(function(){document.getElementById('btnNext').classList.add('show');},1800);
+  } else {
+    state.firstTry=false;state.pts=Math.max(0,state.pts-10);state.fail++;
+    btn.classList.add('wrong');btn.disabled=true;
+    showFb(false,'✗ INCORRECTO — −10 pts','Esa no es la respuesta correcta. Analiza de nuevo la pregunta y prueba con otra opción.');
+  }
+  updateScore();
+}
+function showFb(ok,t,m){var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');document.getElementById('fbt').textContent=t;document.getElementById('fbm').textContent=m;fb.classList.add('show',ok?'ok':'ko');}
+function updateScore(){document.getElementById('pts').textContent=state.pts;document.getElementById('ok').textContent=state.ok;document.getElementById('fail').textContent=state.fail;}
+function nextQ(){state.cur++;document.getElementById('btnNext').classList.remove('show');if(state.cur>=10){showResults();return;}renderQ();}
+function showResults(){
+  document.getElementById('gameArea').style.display='none';document.getElementById('rc').classList.add('show');
+  var pct=Math.min(100,Math.max(0,Math.round(state.pts/1000*100)));
+  document.getElementById('rpct').textContent=pct+'%';document.getElementById('rpts').textContent=state.pts;
+  document.getElementById('rok').textContent=state.ok;document.getElementById('rfail').textContent=state.fail;
+  var t,m;
+  if(pct>=85){t='🏆 Resultado sobresaliente';m='Dominas el control de velocidad por hardware. Estás listo para la clase 1.7 con el puente H L293D.';}
+  else if(pct>=65){t='✅ Resultado superado';m='Buen trabajo. Repasa los conceptos de ciclo de trabajo y la función del potenciómetro.';}
+  else if(pct>=45){t='📖 Buen intento';m='Repasa la teoría de la clase 1.6, especialmente la diferencia entre control hardware y software.';}
+  else{t='💪 ¡Ánimo!';m='Repasa la teoría con calma y vuelve a intentarlo.';}
+  document.getElementById('rtitle').textContent=t;document.getElementById('rmsg').textContent=m;
+  document.getElementById('pf').style.width='100%';document.getElementById('pl').textContent='¡Completado!';
+}
+function restart(){init();}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.8 Simulación - Inercia y carga del motor DC</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080f;--panel:#0d1117;--panel2:#111520;--p1:#3b82f6;--p2:#f59e0b;--p3:#10b981;--p4:#ef4444;--text:#c8d8f0;--textdim:#445566;--border:#1a2535;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:900px;margin:0 auto;padding:20px 16px 40px;position:relative;z-index:0;}
+header{text-align:center;padding:24px 0 16px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--p1);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:17px;color:var(--p2);font-weight:700;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+
+/* Layout principal */
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:600px){.main-grid{grid-template-columns:1fr;}}
+
+/* Motor canvas */
+.motor-panel{background:var(--panel);border:1px solid var(--border);padding:14px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.panel-title{font-family:'Syne',sans-serif;font-size:10px;color:var(--p1);letter-spacing:3px;margin-bottom:4px;width:100%;}
+#motorCanvas{display:block;background:#050810;}
+.motor-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;}
+.ms{background:var(--panel2);border:1px solid var(--border);padding:8px;text-align:center;}
+.ms-l{font-size:9px;color:var(--textdim);letter-spacing:2px;margin-bottom:3px;}
+.ms-v{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+
+/* Osciloscopio de corriente */
+.osc-panel{background:var(--panel);border:1px solid var(--border);padding:14px;}
+#oscCanvas{display:block;margin:0 auto;background:#040810;}
+
+/* Controles */
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:600px){.controls{grid-template-columns:1fr;}}
+.btn-ctrl{padding:14px 10px;border:2px solid;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:1px;font-weight:700;cursor:pointer;transition:all .15s;text-align:center;line-height:1.4;}
+.btn-brusco{background:#1a0820;border-color:var(--p4);color:var(--p4);}
+.btn-brusco:hover,.btn-brusco.act{background:var(--p4);color:#fff;}
+.btn-rampa{background:#001a10;border-color:var(--p3);color:var(--p3);}
+.btn-rampa:hover,.btn-rampa.act{background:var(--p3);color:#000;}
+.btn-parada{background:#1a1200;border-color:var(--p2);color:var(--p2);}
+.btn-parada:hover,.btn-parada.act{background:var(--p2);color:#000;}
+
+/* Slider de carga */
+.carga-panel{background:var(--panel2);border:1px solid var(--border);padding:14px;margin-bottom:14px;}
+.carga-title{font-family:'Syne',sans-serif;font-size:11px;color:var(--p2);letter-spacing:2px;margin-bottom:10px;}
+.carga-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.carga-label{font-size:12px;color:var(--textdim);min-width:80px;}
+input[type=range]{flex:1;min-width:140px;height:32px;cursor:pointer;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:4px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--p2);cursor:pointer;}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--p2);cursor:pointer;border:none;}
+.carga-val{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--p2);min-width:60px;text-align:right;}
+
+/* Comparativa Tinkercad vs Real */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+@media(max-width:600px){.compare{grid-template-columns:1fr;}}
+.cmp-box{background:var(--panel2);border:1px solid var(--border);padding:12px;}
+.cmp-title{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:2px;margin-bottom:8px;font-weight:700;}
+.cmp-item{font-size:12px;color:var(--textdim);margin-bottom:5px;line-height:1.4;}
+.cmp-item.diff{color:var(--p2);}
+
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--p2);padding:14px 16px;font-size:13px;line-height:1.7;color:var(--textdim);}
+.explainer strong{color:var(--p2);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.8</div>
+    <h1>Dinámica real del motor: arranque, inercia y carga</h1>
+    <p class="hsub">Lo que Tinkercad no muestra — visualizado en tiempo real</p>
+  </header>
+
+  <!-- CONTROLES PRINCIPALES -->
+  <div class="controls">
+    <button class="btn-ctrl btn-brusco" id="btnBrusco" onclick="startMode('brusco')">⚡ ARRANQUE<br>BRUSCO<br><span style="font-size:9px;font-weight:400">0 → 100% instantáneo</span></button>
+    <button class="btn-ctrl btn-rampa"  id="btnRampa"  onclick="startMode('rampa')">📈 RAMPA DE<br>ACELERACIÓN<br><span style="font-size:9px;font-weight:400">0 → 100% gradual</span></button>
+    <button class="btn-ctrl btn-parada" id="btnParada" onclick="startMode('parada')">⏹ PARADA<br>BRUSCA<br><span style="font-size:9px;font-weight:400">inercia visible</span></button>
+  </div>
+
+  <!-- SLIDER DE CARGA -->
+  <div class="carga-panel">
+    <div class="carga-title">⚙️  CARGA MECÁNICA</div>
+    <div class="carga-row">
+      <span class="carga-label">Sin carga</span>
+      <input type="range" id="carga" min="0" max="100" value="0">
+      <span class="carga-label" style="text-align:left">Carga máxima</span>
+      <span class="carga-val" id="cargaVal">0%</span>
+    </div>
+  </div>
+
+  <!-- MOTOR + OSCILOSCOPIO -->
+  <div class="main-grid">
+    <div class="motor-panel">
+      <div class="panel-title">MOTOR DC — VISTA REAL</div>
+      <canvas id="motorCanvas" width="280" height="280"></canvas>
+      <div class="motor-stats">
+        <div class="ms"><div class="ms-l">VELOCIDAD</div><div class="ms-v" id="msVel" style="color:var(--p3)">0 RPM</div></div>
+        <div class="ms"><div class="ms-l">CORRIENTE</div><div class="ms-v" id="msCurr" style="color:var(--p2)">0 mA</div></div>
+        <div class="ms"><div class="ms-l">ESTADO</div><div class="ms-v" id="msState" style="color:var(--textdim)">PARADO</div></div>
+        <div class="ms"><div class="ms-l">INERCIA</div><div class="ms-v" id="msInertia" style="color:var(--p1)">—</div></div>
+      </div>
+    </div>
+    <div class="osc-panel">
+      <div class="panel-title">CORRIENTE DE ARRANQUE (mA)</div>
+      <canvas id="oscCanvas" width="380" height="200"></canvas>
+      <div style="font-size:10px;color:var(--textdim);margin-top:8px;text-align:center;">
+        🔴 Arranque brusco &nbsp;|&nbsp; 🟢 Rampa aceleración
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARATIVA -->
+  <div class="compare">
+    <div class="cmp-box">
+      <div class="cmp-title" style="color:var(--textdim)">🔲 TINKERCAD (modelo ideal)</div>
+      <div class="cmp-item">Arranque: instantáneo ⚡</div>
+      <div class="cmp-item">Parada: instantánea ⚡</div>
+      <div class="cmp-item">Inercia: ninguna</div>
+      <div class="cmp-item">Carga: no afecta a la velocidad</div>
+      <div class="cmp-item">Corriente arranque: constante</div>
+    </div>
+    <div class="cmp-box">
+      <div class="cmp-title" style="color:var(--p2)">⚙️ MOTOR REAL (esta simulación)</div>
+      <div class="cmp-item diff">Arranque: aceleración progresiva</div>
+      <div class="cmp-item diff">Parada: deceleración por inercia</div>
+      <div class="cmp-item diff">Inercia: visible tras cortar señal</div>
+      <div class="cmp-item diff">Carga: reduce velocidad y aumenta corriente</div>
+      <div class="cmp-item diff">Corriente arranque: pico 3-7× nominal</div>
+    </div>
+  </div>
+
+  <div class="explainer" id="expl">
+    <strong>Selecciona un modo:</strong> Pulsa cualquiera de los tres botones para ver cómo se comportaría un motor real. Usa el slider de carga para añadir resistencia mecánica y observar cómo cambia el arranque.
+  </div>
+</div>
+
+<script>
+var motorCanvas = document.getElementById('motorCanvas');
+var mCtx = motorCanvas.getContext('2d');
+var oscCanvas = document.getElementById('oscCanvas');
+var oCtx = oscCanvas.getContext('2d');
+
+// Estado del motor
+var velocity = 0;      // 0..1 velocidad actual normalizada
+var targetVel = 0;     // velocidad objetivo
+var motorAngle = 0;
+var mode = 'idle';     // idle | brusco | rampa | parada
+var rampStep = 0;      // para la rampa
+var currHistory = [];  // historial de corriente para el osciloscopio
+var MAX_HIST = 200;
+var rafId = null;
+
+// Parámetros físicos
+var INERTIA_UP   = 0.018;  // aceleración sin carga
+var INERTIA_DOWN = 0.008;  // deceleración sin alimentación (inercia)
+var NOMINAL_CURR = 170;    // mA corriente nominal
+var PEAK_CURR    = 850;    // mA corriente de arranque (5× nominal)
+
+function getCarga() { return parseInt(document.getElementById('carga').value) / 100; }
+
+function getInertiaUp()   { return INERTIA_UP   * (1 - getCarga() * 0.6); }
+function getInertiaDown() { return INERTIA_DOWN  * (1 + getCarga() * 0.8); }
+
+function getCurrent() {
+  // Corriente = nominal × carga + pico de arranque cuando acelera
+  var carga = getCarga();
+  var accelerating = targetVel > velocity + 0.01;
+  var baseCurr = targetVel * (NOMINAL_CURR + carga * 180);
+  var peakExtra = accelerating ? (targetVel - velocity) * PEAK_CURR * (1 + carga) : 0;
+  return Math.min(baseCurr + peakExtra, 1400);
+}
+
+function startMode(m) {
+  mode = m;
+  rampStep = 0;
+  ['btnBrusco','btnRampa','btnParada'].forEach(function(id){ document.getElementById(id).classList.remove('act'); });
+  if (m === 'brusco') {
+    targetVel = 1;
+    document.getElementById('btnBrusco').classList.add('act');
+    document.getElementById('expl').innerHTML = '<strong>Arranque brusco:</strong> La señal pasa de 0 a 100% en un instante. El motor acelera tan rápido como la inercia lo permite. La corriente de arranque llega al pico máximo ('+Math.round(PEAK_CURR*(1+getCarga()))+' mA con la carga actual). En Tinkercad el motor ya estaría a máxima velocidad.';
+  } else if (m === 'rampa') {
+    targetVel = 0;
+    document.getElementById('btnRampa').classList.add('act');
+    document.getElementById('expl').innerHTML = '<strong>Rampa de aceleración:</strong> La señal sube de 0 a 100% gradualmente. La corriente de arranque se reduce significativamente. El movimiento es más suave y los componentes sufren menos estrés. En Tinkercad no hay diferencia visible con el arranque brusco.';
+  } else if (m === 'parada') {
+    targetVel = 0;
+    document.getElementById('btnParada').classList.add('act');
+    document.getElementById('expl').innerHTML = '<strong>Parada brusca:</strong> La señal cae a 0 de golpe. En Tinkercad el motor para inmediatamente. Aquí verás cómo la inercia mantiene el giro durante varios segundos antes de detenerse completamente.';
+  }
+}
+
+function drawMotor() {
+  var W = motorCanvas.width, H = motorCanvas.height;
+  var cx = W/2, cy = H/2;
+  var R = 100; // radio exterior
+  mCtx.clearRect(0, 0, W, H);
+
+  // Fondo
+  mCtx.fillStyle = '#040810';
+  mCtx.fillRect(0, 0, W, H);
+
+  // Grid sutil
+  mCtx.strokeStyle = 'rgba(59,130,246,0.06)';
+  mCtx.lineWidth = 0.5;
+  for(var gx=0;gx<W;gx+=30){mCtx.beginPath();mCtx.moveTo(gx,0);mCtx.lineTo(gx,H);mCtx.stroke();}
+  for(var gy=0;gy<H;gy+=30){mCtx.beginPath();mCtx.moveTo(0,gy);mCtx.lineTo(W,gy);mCtx.stroke();}
+
+  // Cuerpo del motor — corona exterior
+  mCtx.beginPath();
+  mCtx.arc(cx, cy, R, 0, Math.PI*2);
+  mCtx.fillStyle = '#0a0d18';
+  mCtx.strokeStyle = velocity > 0.02 ? '#3b82f6' : '#1a2535';
+  mCtx.lineWidth = 3;
+  mCtx.fill(); mCtx.stroke();
+
+  // Bobinas estáticas del estátor (4 pares)
+  for(var i=0;i<8;i++){
+    var ang = i * Math.PI/4;
+    var bx = cx + Math.cos(ang) * 72;
+    var by = cy + Math.sin(ang) * 72;
+    mCtx.beginPath();
+    mCtx.arc(bx, by, 12, 0, Math.PI*2);
+    mCtx.fillStyle = velocity > 0.02 ? 'rgba(245,158,11,0.25)' : 'rgba(30,37,53,0.6)';
+    mCtx.strokeStyle = velocity > 0.02 ? '#f59e0b' : '#1a2535';
+    mCtx.lineWidth = 1;
+    mCtx.fill(); mCtx.stroke();
+  }
+
+  // Rotor giratorio
+  mCtx.save();
+  mCtx.translate(cx, cy);
+  mCtx.rotate(motorAngle);
+
+  // Disco del rotor
+  mCtx.beginPath();
+  mCtx.arc(0, 0, 52, 0, Math.PI*2);
+  mCtx.fillStyle = '#0d1525';
+  mCtx.strokeStyle = velocity > 0.02 ? '#10b981' : '#1a2535';
+  mCtx.lineWidth = 2;
+  mCtx.fill(); mCtx.stroke();
+
+  // Barras del rotor
+  for(var j=0;j<6;j++){
+    var rang = j * Math.PI/3;
+    mCtx.strokeStyle = velocity > 0.02 ? '#10b981' : '#1a3525';
+    mCtx.lineWidth = 3;
+    mCtx.lineCap = 'round';
+    mCtx.beginPath();
+    mCtx.moveTo(Math.cos(rang)*10, Math.sin(rang)*10);
+    mCtx.lineTo(Math.cos(rang)*46, Math.sin(rang)*46);
+    mCtx.stroke();
+    // Punto en la punta
+    mCtx.beginPath();
+    mCtx.arc(Math.cos(rang)*46, Math.sin(rang)*46, 4, 0, Math.PI*2);
+    mCtx.fillStyle = velocity > 0.02 ? '#10b981' : '#1a3525';
+    mCtx.fill();
+  }
+  mCtx.restore();
+
+  // Eje central
+  mCtx.beginPath();
+  mCtx.arc(cx, cy, 10, 0, Math.PI*2);
+  mCtx.fillStyle = velocity > 0.02 ? '#f59e0b' : '#2a3545';
+  mCtx.fill();
+
+  // Indicador de velocidad circular
+  var speedArc = velocity * Math.PI * 2 * 0.8;
+  mCtx.beginPath();
+  mCtx.arc(cx, cy, R + 14, -Math.PI/2, -Math.PI/2 + speedArc);
+  mCtx.strokeStyle = velocity > 0.6 ? '#10b981' : velocity > 0.2 ? '#f59e0b' : '#3b82f6';
+  mCtx.lineWidth = 6;
+  mCtx.lineCap = 'round';
+  mCtx.stroke();
+
+  // Carga mecánica visual
+  var carga = getCarga();
+  if (carga > 0.05) {
+    mCtx.save();
+    mCtx.translate(cx + R + 30, cy);
+    mCtx.rotate(motorAngle * 0.5);
+    // Rueda de carga
+    mCtx.beginPath();
+    mCtx.arc(0, 0, 18 + carga*14, 0, Math.PI*2);
+    mCtx.fillStyle = 'rgba(245,158,11,0.1)';
+    mCtx.strokeStyle = '#f59e0b';
+    mCtx.lineWidth = 2;
+    mCtx.fill(); mCtx.stroke();
+    // Radios
+    for(var k=0;k<4;k++){
+      var ka = k*Math.PI/2;
+      mCtx.beginPath();
+      mCtx.moveTo(0,0);
+      mCtx.lineTo(Math.cos(ka)*(18+carga*14-3), Math.sin(ka)*(18+carga*14-3));
+      mCtx.strokeStyle = '#f59e0b';
+      mCtx.lineWidth = 1.5;
+      mCtx.stroke();
+    }
+    mCtx.font = '9px JetBrains Mono';
+    mCtx.fillStyle = '#f59e0b';
+    mCtx.textAlign = 'center';
+    mCtx.fillText(Math.round(carga*100)+'%', 0, 3);
+    mCtx.restore();
+    // Eje de conexión
+    mCtx.beginPath();
+    mCtx.moveTo(cx + R, cy);
+    mCtx.lineTo(cx + R + 12, cy);
+    mCtx.strokeStyle = '#f59e0b';
+    mCtx.lineWidth = 3;
+    mCtx.stroke();
+  }
+
+  // Label de inercia — mostrar cuando hay coasting
+  if (mode === 'parada' && velocity > 0.02) {
+    mCtx.font = 'bold 11px Syne,monospace';
+    mCtx.fillStyle = '#f59e0b';
+    mCtx.textAlign = 'center';
+    mCtx.fillText('⟳ INERCIA ACTIVA', cx, H - 18);
+  }
+}
+
+function drawOsc() {
+  var W = oscCanvas.width, H = oscCanvas.height;
+  oCtx.fillStyle = '#040810';
+  oCtx.fillRect(0, 0, W, H);
+  // Grid
+  oCtx.strokeStyle = 'rgba(59,130,246,0.1)';
+  oCtx.lineWidth = 0.5;
+  for(var gx=0;gx<W;gx+=38){oCtx.beginPath();oCtx.moveTo(gx,0);oCtx.lineTo(gx,H);oCtx.stroke();}
+  for(var gy=0;gy<H;gy+=40){oCtx.beginPath();oCtx.moveTo(0,gy);oCtx.lineTo(W,gy);oCtx.stroke();}
+  // Etiquetas
+  oCtx.font = '9px JetBrains Mono';
+  oCtx.fillStyle = '#445566';
+  oCtx.textAlign = 'right';
+  oCtx.fillText('1400mA', 36, 12);
+  oCtx.fillText('700mA',  36, H/2+4);
+  oCtx.fillText('0mA',    36, H-4);
+  // Línea de corriente nominal
+  oCtx.setLineDash([4,4]);
+  oCtx.strokeStyle = 'rgba(16,185,129,0.3)';
+  oCtx.lineWidth = 1;
+  var nomY = H - (NOMINAL_CURR/1400)*H;
+  oCtx.beginPath(); oCtx.moveTo(38,nomY); oCtx.lineTo(W,nomY); oCtx.stroke();
+  oCtx.fillText('nominal', 88, nomY-3);
+  oCtx.setLineDash([]);
+  // Historial de corriente
+  if(currHistory.length > 1){
+    oCtx.beginPath();
+    oCtx.strokeStyle = mode==='rampa'?'#10b981':'#ef4444';
+    oCtx.lineWidth = 2;
+    oCtx.lineJoin = 'round';
+    for(var i=0;i<currHistory.length;i++){
+      var hx = 38 + (i/MAX_HIST)*(W-40);
+      var hy = H - (currHistory[i]/1400)*H;
+      if(i===0) oCtx.moveTo(hx,hy); else oCtx.lineTo(hx,hy);
+    }
+    oCtx.stroke();
+  }
+}
+
+function updateStats() {
+  var rpm = Math.round(velocity * 3200);
+  var curr = Math.round(getCurrent());
+  var carga = getCarga();
+  document.getElementById('cargaVal').textContent = Math.round(carga*100)+'%';
+  document.getElementById('msVel').textContent  = rpm + ' RPM';
+  document.getElementById('msCurr').textContent = curr + ' mA';
+
+  var stateColor, stateText;
+  if(velocity < 0.02 && targetVel === 0){ stateText='PARADO'; stateColor='var(--textdim)'; }
+  else if(velocity < targetVel - 0.02){ stateText='ACELERANDO'; stateColor='var(--p3)'; }
+  else if(velocity > targetVel + 0.02){ stateText='FRENANDO'; stateColor='var(--p2)'; }
+  else{ stateText='NOMINAL'; stateColor='var(--p3)'; }
+  document.getElementById('msState').textContent = stateText;
+  document.getElementById('msState').style.color = stateColor;
+
+  var inertiaText = velocity > 0.02 && targetVel < 0.01 ? 'ACTIVA' : velocity > 0.02 ? 'BAJA' : '—';
+  document.getElementById('msInertia').textContent = inertiaText;
+}
+
+function loop() {
+  var carga = getCarga();
+
+  // Rampa: subir targetVel gradualmente
+  if(mode === 'rampa'){
+    rampStep += 0.004;
+    targetVel = Math.min(rampStep, 1);
+  }
+
+  // Física del motor
+  if(targetVel > velocity){
+    velocity = Math.min(velocity + getInertiaUp(), targetVel);
+  } else if(targetVel < velocity - 0.005){
+    // Con inercia: la parada es lenta
+    velocity = Math.max(velocity - getInertiaDown(), targetVel);
+  } else {
+    velocity = targetVel;
+  }
+
+  // Velocidad de rotación proporcional a velocidad + carga (carga reduce RPM)
+  motorAngle += velocity * (0.14 - carga * 0.06);
+
+  // Historial de corriente
+  currHistory.push(getCurrent());
+  if(currHistory.length > MAX_HIST) currHistory.shift();
+
+  updateStats();
+  drawMotor();
+  drawOsc();
+
+  rafId = requestAnimationFrame(loop);
+}
+
+// Evento del slider de carga
+document.getElementById('carga').addEventListener('input', function(){
+  var v = parseInt(this.value);
+  document.getElementById('cargaVal').textContent = v+'%';
+  // Actualizar explainer con la carga
+  if(mode !== 'idle'){
+    var curr = Math.round(getCurrent());
+    document.getElementById('expl').innerHTML += ' <strong>Corriente con carga ' + v + '%: ~' + curr + ' mA</strong>';
+  }
+});
+
+loop();
+</script>
+</body>
+</html>

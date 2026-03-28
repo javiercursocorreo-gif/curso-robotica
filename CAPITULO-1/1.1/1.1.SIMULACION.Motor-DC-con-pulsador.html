@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.1 Simulación - Motor DC con pulsador</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#09100d; --panel:#0d1a10; --panel2:#111f14;
+  --amber:#f0b830; --amber2:#c8950a; --amber3:#7a5500;
+  --green:#1aaa3a; --green2:#0d7a25; --green3:#0a5018;
+  --red:#cc2222; --dim:#3a5c3e; --text:#c8e8c2; --textdim:#5a8060;
+  --border:#1e3d22; --wire-pos:#f0b830; --wire-neg:#3a7aff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:24px 0 18px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.htag{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Orbitron',monospace;font-size:16px;color:var(--amber);letter-spacing:2px;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+
+.sim-wrap{background:var(--panel);border:1px solid var(--border);padding:20px;margin-bottom:20px;}
+canvas{display:block;margin:0 auto;max-width:100%;}
+
+.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px;}
+.btn-pulse{
+  background:var(--panel2);border:2px solid var(--amber);color:var(--amber);
+  font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;
+  padding:14px 28px;cursor:pointer;transition:all .15s;user-select:none;
+  flex:1;min-width:180px;text-align:center;
+}
+.btn-pulse:active,.btn-pulse.pressed{background:var(--amber3);border-color:var(--amber);}
+.btn-pulse.pressed{transform:scale(0.97);}
+
+.info-panel{background:var(--panel);border:1px solid var(--border);padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+.info-item{text-align:center;}
+.info-label{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-bottom:4px;}
+.info-val{font-family:'Orbitron',monospace;font-size:18px;}
+.info-val.on{color:var(--green);}
+.info-val.off{color:var(--dim);}
+.info-val.amber{color:var(--amber);}
+
+.legend{background:var(--panel2);border:1px solid var(--border);padding:14px 16px;margin-bottom:16px;}
+.legend-title{font-size:10px;color:var(--green);letter-spacing:3px;margin-bottom:10px;}
+.legend-items{display:flex;gap:20px;flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--textdim);}
+.leg-color{width:28px;height:3px;border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.1</div>
+    <h1>Motor DC controlado por pulsador</h1>
+    <p class="hsub">Mantén pulsado el botón para ver el motor en marcha</p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-title">LEYENDA DEL CIRCUITO</div>
+    <div class="legend-items">
+      <div class="leg-item"><div class="leg-color" style="background:#f0b830"></div>Cable positivo (+)</div>
+      <div class="leg-item"><div class="leg-color" style="background:#4488ff"></div>Cable negativo (−)</div>
+      <div class="leg-item"><div class="leg-color" style="background:#1aaa3a"></div>Corriente activa</div>
+      <div class="leg-item"><div class="leg-color" style="background:#1a6b2a;border:1px dashed #1aaa3a"></div>Sin corriente</div>
+    </div>
+  </div>
+
+  <div class="sim-wrap">
+    <canvas id="simCanvas" width="680" height="360"></canvas>
+  </div>
+
+  <div class="controls">
+    <button class="btn-pulse" id="btnPulse"
+      onmousedown="setPulse(true)" onmouseup="setPulse(false)"
+      ontouchstart="setPulse(true);event.preventDefault();" ontouchend="setPulse(false)">
+      ▶ MANTÉN PULSADO
+    </button>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-item">
+      <div class="info-label">PULSADOR</div>
+      <div class="info-val" id="val-puls">ABIERTO</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">CORRIENTE</div>
+      <div class="info-val" id="val-curr">0 mA</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">MOTOR</div>
+      <div class="info-val" id="val-motor">PARADO</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">LED</div>
+      <div class="info-val" id="val-led">APAGADO</div>
+    </div>
+  </div>
+</div>
+
+<script>
+var canvas = document.getElementById('simCanvas');
+var ctx = canvas.getContext('2d');
+var W = 680, H = 360;
+var pressed = false;
+var motorAngle = 0;
+var motorSpeed = 0;
+var particleTimer = 0;
+var particles = [];
+var rafId = null;
+
+function setPulse(on) {
+  pressed = on;
+  var btn = document.getElementById('btnPulse');
+  if (on) { btn.classList.add('pressed'); btn.textContent = '⏸ PULSADO'; }
+  else { btn.classList.remove('pressed'); btn.textContent = '▶ MANTÉN PULSADO'; }
+  updateInfo();
+}
+
+function updateInfo() {
+  var pEl = document.getElementById('val-puls');
+  var cEl = document.getElementById('val-curr');
+  var mEl = document.getElementById('val-motor');
+  var lEl = document.getElementById('val-led');
+  if (pressed) {
+    pEl.textContent = 'CERRADO'; pEl.className = 'info-val on';
+    cEl.textContent = '~180 mA'; cEl.className = 'info-val amber';
+    mEl.textContent = 'GIRANDO'; mEl.className = 'info-val on';
+    lEl.textContent = 'ENCENDIDO'; lEl.className = 'info-val on';
+  } else {
+    pEl.textContent = 'ABIERTO'; pEl.className = 'info-val off';
+    cEl.textContent = '0 mA'; cEl.className = 'info-val off';
+    mEl.textContent = 'PARADO'; mEl.className = 'info-val off';
+    lEl.textContent = 'APAGADO'; lEl.className = 'info-val off';
+  }
+}
+
+// Component positions
+var COMP = {
+  pila:   {x:60,  y:140, w:50, h:80},
+  puls:   {x:200, y:160, w:60, h:40},
+  motor:  {x:380, y:130, w:80, h:80},
+  led:    {x:540, y:160, w:30, h:40},
+  r1:     {x:490, y:160, w:30, h:40},
+};
+
+function drawPila(x,y,w,h) {
+  // Body
+  ctx.fillStyle = '#1a3a20';
+  ctx.strokeStyle = pressed ? '#f0b830' : '#3a5c3e';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,4); ctx.fill(); ctx.stroke();
+  // Terminal cap
+  ctx.fillStyle = pressed ? '#f0b830' : '#3a5c3e';
+  ctx.fillRect(x+15, y-6, 20, 8);
+  // Plus/minus
+  ctx.fillStyle = '#c8e8c2'; ctx.font = 'bold 14px Share Tech Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText('+', x+w/2, y+20);
+  ctx.fillText('−', x+w/2, y+h-8);
+  // Label
+  ctx.font = '10px Share Tech Mono'; ctx.fillStyle = '#5a8060';
+  ctx.fillText('9V', x+w/2, y+h/2+4);
+}
+
+function drawPulsador(x,y,w,h,on) {
+  // Base
+  ctx.fillStyle = '#1a2820';
+  ctx.strokeStyle = on ? '#f0b830' : '#3a5c3e';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,4); ctx.fill(); ctx.stroke();
+  // Button circle
+  ctx.beginPath();
+  ctx.arc(x+w/2, y+h/2, 12, 0, Math.PI*2);
+  ctx.fillStyle = on ? '#f0b830' : '#2a4030';
+  ctx.fill();
+  ctx.strokeStyle = on ? '#c8950a' : '#3a5c3e'; ctx.lineWidth=1;
+  ctx.stroke();
+  // Label
+  ctx.font = '9px Share Tech Mono'; ctx.fillStyle = '#5a8060';
+  ctx.textAlign = 'center';
+  ctx.fillText(on ? 'CERRADO' : 'ABIERTO', x+w/2, y+h+14);
+}
+
+function drawMotor(x,y,w,h,angle) {
+  var cx = x+w/2, cy = y+h/2, r = Math.min(w,h)/2 - 4;
+  // Outer ring
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle = '#0d1a10';
+  ctx.strokeStyle = pressed ? '#1aaa3a' : '#1e3d22'; ctx.lineWidth=2;
+  ctx.fill(); ctx.stroke();
+  // Spinning cross
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(angle);
+  ctx.strokeStyle = pressed ? '#f0b830' : '#3a5c3e'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(-r+8,0); ctx.lineTo(r-8,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-r+8); ctx.lineTo(0,r-8); ctx.stroke();
+  // Tip dots
+  [0,90,180,270].forEach(function(deg){
+    var rad = deg*Math.PI/180;
+    ctx.beginPath(); ctx.arc(Math.cos(rad)*(r-8), Math.sin(rad)*(r-8), 3, 0, Math.PI*2);
+    ctx.fillStyle = pressed ? '#f0b830' : '#3a5c3e'; ctx.fill();
+  });
+  ctx.restore();
+  // Center dot
+  ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2);
+  ctx.fillStyle = pressed ? '#1aaa3a' : '#3a5c3e'; ctx.fill();
+  // M label
+  ctx.font = 'bold 13px Orbitron,monospace'; ctx.fillStyle = pressed?'#1aaa3a':'#3a5c3e';
+  ctx.textAlign='center'; ctx.fillText('M', cx, cy+r+16);
+}
+
+function drawLED(x,y,w,h,on) {
+  // Body (triangle + bar)
+  ctx.save(); ctx.translate(x+w/2, y+h/2);
+  ctx.fillStyle = on ? '#1aaa3a' : '#1a2820';
+  ctx.strokeStyle = on ? '#1aaa3a' : '#3a5c3e'; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(-8,-12); ctx.lineTo(8,0); ctx.lineTo(-8,12); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = on ? '#1aaa3a' : '#3a5c3e'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(8,-12); ctx.lineTo(8,12); ctx.stroke();
+  // Glow rays
+  if (on) {
+    ctx.strokeStyle = 'rgba(26,170,58,0.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(12,-8); ctx.lineTo(18,-14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(20,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12,8); ctx.lineTo(18,14); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.font='9px Share Tech Mono'; ctx.fillStyle='#5a8060'; ctx.textAlign='center';
+  ctx.fillText(on?'ON':'OFF', x+w/2, y+h+14);
+}
+
+function drawR1(x,y,w,h) {
+  ctx.fillStyle='#1a2820';
+  ctx.strokeStyle='#3a5c3e'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.roundRect(x,y+10,w,h-20,2); ctx.fill(); ctx.stroke();
+  ctx.font='9px Share Tech Mono'; ctx.fillStyle='#5a8060'; ctx.textAlign='center';
+  ctx.fillText('R1', x+w/2, y+h/2+4);
+  ctx.fillText('220Ω', x+w/2, y+h+14);
+}
+
+function wireColor(active) { return active ? '#1aaa3a' : '#1a3a22'; }
+function posColor(active) { return active ? '#f0b830' : '#3a4a30'; }
+function negColor() { return '#334466'; }
+
+function drawWires() {
+  var on = pressed;
+  ctx.lineWidth=2.5; ctx.lineCap='round';
+
+  // Pila (+) top → carril superior
+  ctx.strokeStyle = posColor(on);
+  ctx.beginPath(); ctx.moveTo(85,134); ctx.lineTo(85,60); ctx.lineTo(620,60); ctx.stroke();
+
+  // Pila (−) bottom → carril inferior
+  ctx.strokeStyle = negColor();
+  ctx.beginPath(); ctx.moveTo(85,220); ctx.lineTo(85,300); ctx.lineTo(620,300); ctx.stroke();
+
+  // Carril superior → pulsador top
+  ctx.strokeStyle = posColor(on);
+  ctx.beginPath(); ctx.moveTo(200,60); ctx.lineTo(200,160); ctx.stroke();
+
+  // Pulsador bottom → motor (+)
+  ctx.strokeStyle = wireColor(on);
+  ctx.beginPath(); ctx.moveTo(260,180); ctx.lineTo(380,180); ctx.stroke();
+
+  // Motor (+) top link
+  ctx.strokeStyle = wireColor(on);
+  ctx.beginPath(); ctx.moveTo(380,170); ctx.lineTo(340,170); ctx.lineTo(340,60); ctx.stroke();
+
+  // Motor (−) → carril inferior
+  ctx.strokeStyle = negColor();
+  ctx.beginPath(); ctx.moveTo(460,210); ctx.lineTo(460,300); ctx.stroke();
+
+  // Motor → R1 → LED top
+  ctx.strokeStyle = wireColor(on);
+  ctx.beginPath(); ctx.moveTo(420,130); ctx.lineTo(420,60); ctx.lineTo(490,60); ctx.lineTo(490,160); ctx.stroke();
+
+  // LED bottom → carril inferior
+  ctx.strokeStyle = negColor();
+  ctx.beginPath(); ctx.moveTo(555,200); ctx.lineTo(555,300); ctx.stroke();
+
+  // Pulsador gap visual
+  if (!on) {
+    ctx.strokeStyle='#444'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(230,160); ctx.lineTo(260,160); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function spawnParticle() {
+  // Positive wire path: pila+ → top rail → puls → motor → split to led
+  var paths = [
+    [{x:85,y:140},{x:85,y:60},{x:340,y:60},{x:340,y:170},{x:380,y:170},{x:420,y:170},{x:460,y:170},{x:460,y:300}],
+    [{x:85,y:140},{x:85,y:60},{x:490,y:60},{x:490,y:160},{x:490,y:200},{x:555,y:200},{x:555,y:300}],
+  ];
+  var path = paths[Math.floor(Math.random()*paths.length)];
+  particles.push({path:path, t:0, speed: 0.004+Math.random()*0.003});
+}
+
+function updateParticles() {
+  particles.forEach(function(p){ p.t += p.speed; });
+  particles = particles.filter(function(p){ return p.t < 1; });
+  if (pressed && particles.length < 12 && Math.random() < 0.3) spawnParticle();
+}
+
+function drawParticles() {
+  particles.forEach(function(p){
+    var seg = p.path.length-1;
+    var rawIdx = p.t * seg;
+    var idx = Math.floor(rawIdx);
+    if (idx >= seg) return;
+    var frac = rawIdx - idx;
+    var a = p.path[idx], b = p.path[idx+1];
+    var px = a.x + (b.x-a.x)*frac;
+    var py = a.y + (b.y-a.y)*frac;
+    ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2);
+    ctx.fillStyle = 'rgba(26,170,58,'+(1-p.t*0.5)+')';
+    ctx.fill();
+  });
+}
+
+function loop() {
+  ctx.clearRect(0,0,W,H);
+
+  // Background grid
+  ctx.strokeStyle='rgba(30,61,34,0.3)'; ctx.lineWidth=0.5;
+  for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+  for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+  drawWires();
+  drawPila(COMP.pila.x, COMP.pila.y, COMP.pila.w, COMP.pila.h);
+  drawPulsador(COMP.puls.x, COMP.puls.y, COMP.puls.w, COMP.puls.h, pressed);
+  drawR1(COMP.r1.x, COMP.r1.y, COMP.r1.w, COMP.r1.h);
+
+  // Motor spin
+  if (pressed) motorSpeed = Math.min(motorSpeed+0.015, 0.12);
+  else motorSpeed = Math.max(motorSpeed-0.008, 0);
+  motorAngle += motorSpeed;
+  drawMotor(COMP.motor.x, COMP.motor.y, COMP.motor.w, COMP.motor.h, motorAngle);
+  drawLED(COMP.led.x, COMP.led.y, COMP.led.w, COMP.led.h, pressed);
+
+  // Component labels
+  ctx.font='10px Share Tech Mono'; ctx.fillStyle='#3a5c3e'; ctx.textAlign='center';
+  ctx.fillText('PILA 9V', 85, 240);
+  ctx.fillText('PULSADOR', 230, 210);
+  ctx.fillText('MOTOR DC', 420, 222);
+
+  updateParticles();
+  drawParticles();
+
+  rafId = requestAnimationFrame(loop);
+}
+
+loop();
+updateInfo();
+</script>
+</body>
+</html>

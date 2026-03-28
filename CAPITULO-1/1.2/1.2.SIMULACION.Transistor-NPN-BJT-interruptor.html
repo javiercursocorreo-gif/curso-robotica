@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.2 Simulación - Transistor NPN BJT como interruptor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060d14;--panel:#0a1520;--panel2:#0d1c2a;
+  --cyan:#00d4ff;--cyan2:#0099cc;--cyan3:#004466;
+  --green:#00e060;--green2:#007a30;
+  --yellow:#ffdd00;--red:#ff3355;
+  --text:#b0d8e8;--textdim:#3a6a80;--border:#0d2d40;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:24px 0 18px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:17px;color:var(--cyan);font-weight:700;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.sim-wrap{background:var(--panel);border:1px solid var(--border);padding:16px;margin-bottom:16px;}
+canvas{display:block;margin:0 auto;max-width:100%;}
+.controls{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.btn-sim{flex:1;min-width:160px;padding:14px;border:2px solid;font-family:'Syne',sans-serif;
+  font-size:13px;letter-spacing:2px;font-weight:700;cursor:pointer;transition:all .15s;}
+.btn-on{background:var(--green2);border-color:var(--green);color:#fff;}
+.btn-on:hover{background:var(--green);}
+.btn-off{background:var(--panel2);border-color:var(--border);color:var(--textdim);}
+.btn-off.active{border-color:var(--red);color:var(--red);background:#1a0008;}
+.btn-off:hover{border-color:var(--red);}
+
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
+.info-box{background:var(--panel2);border:1px solid var(--border);padding:12px;text-align:center;}
+.info-lbl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-bottom:4px;}
+.info-v{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+.info-v.on{color:var(--green);}
+.info-v.off{color:var(--textdim);}
+.info-v.warn{color:var(--yellow);}
+
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--cyan);
+  padding:14px 16px;font-size:13px;line-height:1.7;color:var(--textdim);}
+.explainer strong{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.2</div>
+    <h1>El transistor NPN BJT como interruptor electrónico</h1>
+    <p class="hsub">Observa cómo una señal débil en la Base controla la corriente fuerte del motor</p>
+  </header>
+
+  <div class="sim-wrap">
+    <canvas id="c" width="680" height="380"></canvas>
+  </div>
+
+  <div class="controls">
+    <button class="btn-sim btn-on" id="btnOn" onclick="setMode(true)">▶ PULSAR BOTÓN → MOTOR ON</button>
+    <button class="btn-sim btn-off" id="btnOff" onclick="setMode(false)">⏹ SOLTAR BOTÓN → MOTOR OFF</button>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box"><div class="info-lbl">PULSADOR</div><div class="info-v" id="iv-puls">ABIERTO</div></div>
+    <div class="info-box"><div class="info-lbl">CORRIENTE BASE</div><div class="info-v" id="iv-ib">0 µA</div></div>
+    <div class="info-box"><div class="info-lbl">TRANSISTOR</div><div class="info-v" id="iv-npn">CORTADO</div></div>
+    <div class="info-box"><div class="info-lbl">CORRIENTE MOTOR</div><div class="info-v" id="iv-ic">0 mA</div></div>
+    <div class="info-box"><div class="info-lbl">MOTOR</div><div class="info-v" id="iv-motor">PARADO</div></div>
+  </div>
+
+  <div class="explainer" id="explainer">
+    <strong>Estado inicial:</strong> El pulsador está abierto. R3 (pull-down) mantiene la Base del transistor a 0 V.
+    El transistor está cortado: no hay camino para la corriente del motor. El motor permanece parado.
+  </div>
+</div>
+
+<script>
+var canvas=document.getElementById('c');
+var ctx=canvas.getContext('2d');
+var W=680,H=380;
+var on=false;
+var motorAngle=0, motorSpeed=0;
+var particles=[];
+var rafId=null;
+
+function setMode(v){
+  on=v;
+  document.getElementById('btnOn').style.opacity=v?'1':'0.5';
+  document.getElementById('btnOff').classList.toggle('active',!v);
+  updateInfo();
+}
+
+function updateInfo(){
+  var set=function(id,txt,cls){
+    var el=document.getElementById(id);el.textContent=txt;
+    el.className='info-v '+(cls||'');
+  };
+  if(on){
+    set('iv-puls','CERRADO','on');
+    set('iv-ib','~85 µA','warn');
+    set('iv-npn','SATURADO','on');
+    set('iv-ic','~170 mA','warn');
+    set('iv-motor','GIRANDO','on');
+    document.getElementById('explainer').innerHTML=
+      '<strong>Pulsador cerrado:</strong> La corriente fluye por R2 (1 kΩ) hacia la Base. '+
+      'El transistor entra en <strong>saturación</strong>: abre el camino entre Colector y Emisor. '+
+      'La corriente del motor (170 mA) puede fluir desde la pila. El motor gira.';
+  } else {
+    set('iv-puls','ABIERTO','off');
+    set('iv-ib','0 µA','off');
+    set('iv-npn','CORTADO','off');
+    set('iv-ic','0 mA','off');
+    set('iv-motor','PARADO','off');
+    document.getElementById('explainer').innerHTML=
+      '<strong>Pulsador abierto:</strong> R3 (10 kΩ) lleva la Base a 0 V. '+
+      'El transistor está <strong>cortado</strong>: el camino entre Colector y Emisor está bloqueado. '+
+      'No hay corriente en el motor. El motor permanece parado.';
+  }
+}
+
+// Layout
+var L={
+  pila:{x:40,y:140,w:48,h:100},
+  puls:{x:160,y:175,w:60,h:40},  // pulsador
+  r2:{x:230,y:210,w:28,h:50},   // R2
+  r3:{x:230,y:290,w:28,h:40},   // R3 pull-down
+  npn:{x:320,y:170,w:80,h:80},  // transistor
+  motor:{x:480,y:145,w:80,h:80},// motor
+};
+
+var col={
+  pos: function(){ return on?'#f0b830':'#3a5040'; },
+  neg: '#334466',
+  base: function(){ return on?'#00d4ff':'#1a3a50'; },
+  power: function(){ return on?'#00e060':'#1a3a22'; },
+};
+
+function drawBg(){
+  ctx.strokeStyle='rgba(13,45,64,0.4)';ctx.lineWidth=0.5;
+  for(var x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(var y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+
+function drawWire(pts,clr,w){
+  ctx.strokeStyle=clr;ctx.lineWidth=w||2.5;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.stroke();
+}
+
+function drawWires(){
+  // Carril positivo top
+  drawWire([[64,140],[64,60],[560,60]],col.pos());
+  // Pila neg → carril neg bottom
+  drawWire([[64,240],[64,340],[560,340]],col.neg);
+  // Positivo → pulsador
+  drawWire([[160,60],[160,175]],col.pos());
+  // Pulsador → R2
+  if(on) drawWire([[220,195],[230,195],[230,210]],col.base());
+  else { // gap visual
+    ctx.setLineDash([5,5]);
+    drawWire([[220,195],[228,195]],col.base());
+    ctx.setLineDash([]);
+  }
+  // R2 → Base del transistor (punto B)
+  drawWire([[230,260],[230,270],[310,270],[310,220],[320,220]],col.base());
+  // R3: Base → GND
+  drawWire([[230,290],[230,340]],col.neg);
+  // Positivo → Motor+
+  drawWire([[480,60],[480,145]],col.pos());
+  // Motor− → Colector
+  drawWire([[480,225],[480,250],[400,250],[400,210]],col.power());
+  // Emisor → GND
+  drawWire([[360,250],[360,340]],col.neg);
+  // Motor+ top rail connection
+  drawWire([[520,145],[520,60]],col.pos());
+}
+
+function drawPila(x,y,w,h){
+  ctx.fillStyle='#0d2018';ctx.strokeStyle=col.pos();ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,4);ctx.fill();ctx.stroke();
+  ctx.fillStyle=col.pos();ctx.fillRect(x+14,y-6,20,8);
+  ctx.font='bold 14px Share Tech Mono';ctx.textAlign='center';ctx.fillStyle='#b0d8e8';
+  ctx.fillText('+',x+w/2,y+22);ctx.fillText('−',x+w/2,y+h-10);
+  ctx.font='10px Share Tech Mono';ctx.fillStyle='#3a6a80';
+  ctx.fillText('9V',x+w/2,y+h/2+4);
+}
+
+function drawPulsador(x,y,w,h){
+  ctx.fillStyle='#0d1c2a';ctx.strokeStyle=on?'#00d4ff':'#0d2d40';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,4);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.arc(x+w/2,y+h/2,11,0,Math.PI*2);
+  ctx.fillStyle=on?'#00d4ff':'#0d2d40';ctx.fill();
+  ctx.strokeStyle=on?'#0099cc':'#0d2d40';ctx.lineWidth=1;ctx.stroke();
+  ctx.font='8px Share Tech Mono';ctx.fillStyle='#3a6a80';ctx.textAlign='center';
+  ctx.fillText(on?'CERRADO':'ABIERTO',x+w/2,y+h+13);
+}
+
+function drawR(x,y,w,h,label,value){
+  ctx.fillStyle='#0d1c2a';ctx.strokeStyle='#0d2d40';ctx.lineWidth=1;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,2);ctx.fill();ctx.stroke();
+  ctx.font='9px Share Tech Mono';ctx.fillStyle='#3a6a80';ctx.textAlign='center';
+  ctx.fillText(label,x+w/2,y+h/2+2);
+  ctx.font='8px Share Tech Mono';
+  ctx.fillText(value,x+w/2,y+h+12);
+}
+
+function drawNPN(x,y,w,h){
+  var cx=x+w/2,cy=y+h/2,r=32;
+  // Circle body
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='#060d14';
+  ctx.strokeStyle=on?'#00e060':'#0d2d40';ctx.lineWidth=2;
+  ctx.fill();ctx.stroke();
+  // Base line (horizontal left)
+  drawWire([[cx-r,cy],[cx-r+12,cy]],on?'#00d4ff':'#1a3a50',2);
+  // Vertical bar
+  drawWire([[cx-r+12,cy-18],[cx-r+12,cy+18]],on?'#00e060':'#1a3a50',2.5);
+  // Collector (up-right)
+  drawWire([[cx-r+12,cy-10],[cx+r,cy-22]],on?'#00e060':'#1a3a50',2);
+  // Emitter (down-right, with arrow)
+  ctx.strokeStyle=on?'#00e060':'#1a3a50';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(cx-r+12,cy+10);ctx.lineTo(cx+r,cy+22);ctx.stroke();
+  // Arrow on emitter
+  ctx.save();ctx.translate(cx+r,cy+22);ctx.rotate(Math.atan2(12,r-12));
+  ctx.fillStyle=on?'#00e060':'#1a3a50';
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-8,-4);ctx.lineTo(-8,4);ctx.closePath();ctx.fill();
+  ctx.restore();
+  // Labels
+  ctx.font='bold 9px Orbitron,Share Tech Mono,monospace';ctx.textAlign='center';
+  ctx.fillStyle=on?'#00e060':'#3a6a80';
+  ctx.fillText('NPN',cx,cy+4);
+  ctx.font='8px Share Tech Mono';ctx.fillStyle='#3a6a80';
+  ctx.fillText('B',cx-r-8,cy+4);
+  ctx.fillText('C',cx+r+8,cy-22);
+  ctx.fillText('E',cx+r+8,cy+22);
+}
+
+function drawMotor(x,y,w,h,angle){
+  var cx=x+w/2,cy=y+h/2,r=32;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='#060d14';
+  ctx.strokeStyle=on?'#00e060':'#0d2d40';ctx.lineWidth=2;
+  ctx.fill();ctx.stroke();
+  // Spinning
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);
+  ctx.strokeStyle=on?'#ffdd00':'#1a3a22';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(-r+10,0);ctx.lineTo(r-10,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-r+10);ctx.lineTo(0,r-10);ctx.stroke();
+  [0,90,180,270].forEach(function(d){
+    var rad=d*Math.PI/180;
+    ctx.beginPath();ctx.arc(Math.cos(rad)*(r-10),Math.sin(rad)*(r-10),3,0,Math.PI*2);
+    ctx.fillStyle=on?'#ffdd00':'#1a3a22';ctx.fill();
+  });
+  ctx.restore();
+  ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);
+  ctx.fillStyle=on?'#00e060':'#1a3a22';ctx.fill();
+  ctx.font='bold 11px Syne,monospace';ctx.fillStyle=on?'#00e060':'#3a6a80';ctx.textAlign='center';
+  ctx.fillText('M',cx,cy+r+15);
+}
+
+function spawnParticle(pathPts,fast){
+  particles.push({path:pathPts,t:0,speed:(fast?0.006:0.004)+Math.random()*0.002});
+}
+
+function updateParticles(){
+  particles.forEach(function(p){p.t+=p.speed;});
+  particles=particles.filter(function(p){return p.t<1;});
+  if(on&&particles.length<15){
+    // Base current path
+    if(Math.random()<0.15) spawnParticle([[160,60],[160,175],[220,195],[230,195],[230,210],[230,260],[230,270],[310,270],[310,220],[320,220]],false);
+    // Motor power path
+    if(Math.random()<0.25) spawnParticle([[64,60],[480,60],[480,145],[480,225],[480,250],[400,250],[400,210],[360,210],[360,250],[360,340],[64,340]],true);
+  }
+}
+
+function drawParticles(){
+  particles.forEach(function(p){
+    var seg=p.path.length-1;
+    var ri=p.t*seg,idx=Math.floor(ri);
+    if(idx>=seg)return;
+    var fr=ri-idx,a=p.path[idx],b=p.path[idx+1];
+    var px=a[0]+(b[0]-a[0])*fr,py=a[1]+(b[1]-a[1])*fr;
+    var isBase=p.path.length<12;
+    ctx.beginPath();ctx.arc(px,py,isBase?2.5:3.5,0,Math.PI*2);
+    ctx.fillStyle=isBase?'rgba(0,212,255,'+(1-p.t*0.4)+')':'rgba(0,224,96,'+(1-p.t*0.4)+')';
+    ctx.fill();
+  });
+}
+
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  drawBg();
+  drawWires();
+  drawPila(L.pila.x,L.pila.y,L.pila.w,L.pila.h);
+  drawPulsador(L.puls.x,L.puls.y,L.puls.w,L.puls.h);
+  drawR(L.r2.x,L.r2.y,L.r2.w,L.r2.h,'R2','1kΩ');
+  drawR(L.r3.x,L.r3.y,L.r3.w,L.r3.h,'R3','10kΩ');
+  drawNPN(L.npn.x,L.npn.y,L.npn.w,L.npn.h);
+  if(on) motorSpeed=Math.min(motorSpeed+0.012,0.1);
+  else motorSpeed=Math.max(motorSpeed-0.006,0);
+  motorAngle+=motorSpeed;
+  drawMotor(L.motor.x,L.motor.y,L.motor.w,L.motor.h,motorAngle);
+  updateParticles();
+  drawParticles();
+
+  // Section labels
+  ctx.font='9px Share Tech Mono';ctx.textAlign='center';ctx.fillStyle='#1a4a30';
+  ctx.fillText('SEÑAL DE CONTROL',230,160);
+  ctx.fillText('(corriente débil)',230,172);
+  ctx.fillStyle='#1a3a50';
+  ctx.fillText('CORRIENTE DE POTENCIA',480,135);
+  ctx.fillText('(corriente fuerte)',480,147);
+
+  rafId=requestAnimationFrame(loop);
+}
+loop();
+setMode(false);
+</script>
+</body>
+</html>

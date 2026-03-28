@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.2 Juego - Control ON/OFF con transistor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060d14; --panel:#0a1520; --panel2:#0d1c2a;
+  --cyan:#00d4ff; --cyan2:#0099cc; --cyan3:#004466;
+  --green:#00e060; --green2:#007a30;
+  --yellow:#ffdd00; --yellow2:#886600;
+  --red:#ff3355; --red2:#880022;
+  --text:#b0d8e8; --textdim:#3a6a80; --border:#0d2d40;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:900px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:19px;color:var(--cyan);font-weight:700;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--cyan);
+  padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--cyan);}
+
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);
+  padding:12px 16px;margin-bottom:24px;}
+.score-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.score-label{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.score-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;}
+.score-val.pts{color:var(--cyan);}
+.score-val.ok{color:var(--green);}
+.score-val.fail{color:var(--red);}
+.prog-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.prog-label{font-size:10px;color:var(--textdim);}
+.prog-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--cyan);transition:width .4s;}
+
+/* DRAG AND DROP */
+.round-header{font-family:'Syne',sans-serif;font-size:11px;color:var(--cyan);letter-spacing:3px;
+  margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.question-label{font-size:15px;color:var(--yellow);margin-bottom:16px;line-height:1.5;
+  background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--yellow);
+  padding:12px 16px;}
+
+.cards-pool{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;min-height:64px;
+  background:var(--panel2);border:1px solid var(--border);padding:14px;border-radius:4px;}
+.card{
+  background:var(--panel);border:1.5px solid var(--cyan3);color:var(--cyan);
+  font-family:'Share Tech Mono',monospace;font-size:13px;
+  padding:10px 16px;cursor:grab;border-radius:4px;
+  transition:border-color .15s,background .15s,opacity .15s;
+  user-select:none;touch-action:none;
+}
+.card:hover{border-color:var(--cyan);background:#0d2030;}
+.card.dragging{opacity:0.4;}
+
+.zones{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+@media(max-width:560px){.zones{grid-template-columns:1fr;}}
+
+.drop-zone{
+  background:var(--panel2);border:2px dashed var(--border);border-radius:4px;
+  padding:12px 14px;min-height:70px;
+  transition:border-color .15s,background .15s;
+}
+.drop-zone.drag-over{border-color:var(--cyan);background:#0d2030;}
+.drop-zone.correct{border-color:var(--green);background:#001a08;}
+.drop-zone.wrong{border-color:var(--red);background:#1a0008;}
+.zone-label{font-size:11px;color:var(--textdim);letter-spacing:1px;margin-bottom:8px;}
+.zone-content{min-height:36px;display:flex;align-items:center;}
+.hint{font-size:11px;color:var(--red);margin-top:6px;min-height:14px;}
+
+.feedback-box{padding:14px 18px;border-left:4px solid;font-size:13px;line-height:1.6;
+  margin-bottom:14px;display:none;}
+.feedback-box.show{display:block;}
+.feedback-box.ok{border-color:var(--green);background:#001a08;color:#80ffaa;}
+.feedback-box.ko{border-color:var(--red);background:#1a0005;color:#ffaaaa;}
+.fb-title{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:2px;margin-bottom:5px;font-weight:700;}
+
+.btn-check{width:100%;background:var(--cyan2);border:1px solid var(--cyan);color:#000;
+  font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;
+  padding:14px;cursor:pointer;transition:background .2s;margin-bottom:10px;}
+.btn-check:hover{background:var(--cyan);}
+.btn-next{display:none;width:100%;background:var(--green2);border:1px solid var(--green);color:#fff;
+  font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;
+  padding:14px;cursor:pointer;transition:background .2s;}
+.btn-next:hover{background:var(--green);}
+.btn-next.show{display:block;}
+
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);
+  padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Syne',sans-serif;font-size:56px;font-weight:700;color:var(--cyan);margin-bottom:8px;}
+.res-title{font-family:'Syne',sans-serif;font-size:22px;color:var(--green);margin-bottom:12px;font-weight:700;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.res-stat{text-align:center;}
+.res-stat-val{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;}
+.g{color:var(--green);}.r{color:var(--red);}.a{color:var(--cyan);}
+.res-stat-label{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--cyan2);border:1px solid var(--cyan);color:#000;
+  font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;
+  padding:14px 32px;cursor:pointer;transition:background .2s;}
+.btn-restart:hover{background:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Control ON/OFF con transistor NPN BJT</h1>
+    <p class="hsub">Clase 1.2 — Arrastra cada componente a su función correcta</p>
+  </header>
+
+  <div class="instr">
+    <span>Instrucciones:</span> Lee la pregunta y arrastra cada componente a la zona que describe su función.
+    Pulsa <span>VERIFICAR</span> cuando hayas colocado todos. <span>+80 pts</span> por acierto · <span>−10 pts</span> por fallo · mínimo 0 pts.
+  </div>
+
+  <div class="score-bar">
+    <div class="score-item"><span class="score-label">PUNTOS</span><span class="score-val pts" id="pts">0</span></div>
+    <div class="score-item"><span class="score-label">ACIERTOS</span><span class="score-val ok" id="ok">0</span></div>
+    <div class="score-item"><span class="score-label">FALLOS</span><span class="score-val fail" id="fail">0</span></div>
+    <div class="prog-wrap">
+      <div class="prog-label" id="prog-label">Ronda 1 de 3</div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div id="gameArea">
+    <div class="round-header" id="round-header">RONDA 01 / 03</div>
+    <div class="question-label" id="q-label"></div>
+    <div class="cards-pool" id="pool"></div>
+    <div class="zones" id="zones"></div>
+    <div class="feedback-box" id="feedback"><div class="fb-title" id="fb-title"></div><div id="fb-msg"></div></div>
+    <button class="btn-check" id="btn-check" onclick="checkRound()">VERIFICAR RESPUESTAS</button>
+    <button class="btn-next" id="btn-next" onclick="nextRound()">SIGUIENTE RONDA ›</button>
+  </div>
+
+  <div class="results-card" id="resultsCard">
+    <div class="res-pct" id="res-pct"></div>
+    <div class="res-title" id="res-title"></div>
+    <div class="res-msg" id="res-msg"></div>
+    <div class="res-stats">
+      <div class="res-stat"><div class="res-stat-val a" id="r-pts"></div><div class="res-stat-label">PUNTOS</div></div>
+      <div class="res-stat"><div class="res-stat-val g" id="r-ok"></div><div class="res-stat-label">ACIERTOS</div></div>
+      <div class="res-stat"><div class="res-stat-val r" id="r-fail"></div><div class="res-stat-label">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+
+<script>
+var ROUNDS = [
+  {
+    q: "RONDA 1: Arrastra cada componente del circuito a su función en el circuito de la clase 1.2",
+    cards: [
+      {id:'npn',  text:'NPN BJT'},
+      {id:'r2',   text:'R2 (1 kΩ)'},
+      {id:'r3',   text:'R3 (10 kΩ)'},
+      {id:'puls', text:'Pulsador'},
+      {id:'pila', text:'Pila 9 V'},
+    ],
+    zones: [
+      {id:'z-npn',  label:'Interruptor electrónico de potencia', correct:'npn',  hint:'Permite que circule la corriente del motor cuando recibe señal en la Base'},
+      {id:'z-r2',   label:'Limita la corriente de Base',         correct:'r2',   hint:'Resistencia en serie entre el pulsador y la Base del transistor'},
+      {id:'z-r3',   label:'Pull-down de la Base',                correct:'r3',   hint:'Mantiene la Base a 0 V cuando el pulsador está abierto'},
+      {id:'z-puls', label:'Genera la señal de control manual',   correct:'puls', hint:'El alumno lo presiona para activar el sistema'},
+      {id:'z-pila', label:'Fuente de energía del circuito',      correct:'pila', hint:'Proporciona los 9 V que alimentan todo el circuito'},
+    ],
+    fb_ok: '¡Perfecto! Has identificado correctamente todos los componentes y sus funciones. El transistor NPN BJT es el elemento clave: separa la señal de control (débil) de la corriente del motor (fuerte).',
+    fb_ko: 'Revisa las zonas marcadas en rojo. Recuerda: R2 limita la Base, R3 es el pull-down, y el NPN BJT es el interruptor de potencia.',
+  },
+  {
+    q: "RONDA 2: Arrastra cada terminal del transistor NPN BJT a su descripción correcta",
+    cards: [
+      {id:'base',     text:'Base (B)'},
+      {id:'colector', text:'Colector (C)'},
+      {id:'emisor',   text:'Emisor (E)'},
+      {id:'vce',      text:'Vce sat ≈ 0,2 V'},
+    ],
+    zones: [
+      {id:'z-b',   label:'Terminal de control. Recibe la señal débil del pulsador.',             correct:'base',     hint:'Una pequeña corriente aquí activa el transistor'},
+      {id:'z-c',   label:'Terminal conectado a la carga (motor). Corriente fuerte.',             correct:'colector', hint:'Se conecta al terminal (−) del motor'},
+      {id:'z-e',   label:'Terminal conectado al carril negativo (−). Siempre a GND.',           correct:'emisor',   hint:'El camino de retorno de la corriente fuerte'},
+      {id:'z-vce', label:'Caída de tensión residual cuando el transistor conduce completamente.', correct:'vce',      hint:'En Tinkercad es cero; en un sistema real es pequeña pero existe'},
+    ],
+    fb_ok: 'Excelente. Conoces bien los tres terminales del NPN BJT y el concepto de tensión de saturación. En Tinkercad esta caída es ideal (cero), pero en un circuito real existe y hay que tenerla en cuenta.',
+    fb_ko: 'Repasa los terminales del NPN BJT: Base recibe la señal de control, Colector conecta a la carga, Emisor va a GND.',
+  },
+  {
+    q: "RONDA 3: Arrastra cada situación al resultado correcto en el circuito de la clase 1.2",
+    cards: [
+      {id:'s1', text:'Pulsador cerrado'},
+      {id:'s2', text:'Pulsador abierto'},
+      {id:'s3', text:'Base sin R3 (flotante)'},
+      {id:'s4', text:'R2 demasiado grande'},
+    ],
+    zones: [
+      {id:'z-r1', label:'Motor gira. Transistor en saturación.',                  correct:'s1', hint:'Corriente fluye de la pila al motor a través del transistor'},
+      {id:'z-r2', label:'Motor parado. R3 lleva la Base a 0 V.',                  correct:'s2', hint:'Sin señal en la Base el transistor se corta'},
+      {id:'z-r3', label:'Motor puede arrancar solo por interferencias.',           correct:'s3', hint:'Sin referencia de tensión la Base flota y capta ruido'},
+      {id:'z-r4', label:'Transistor no satura. Motor puede no arrancar correctamente.', correct:'s4', hint:'Demasiada resistencia impide que llegue corriente suficiente a la Base'},
+    ],
+    fb_ok: '¡Correcto! Comprendes bien cómo afecta cada condición al funcionamiento del circuito. La resistencia de pull-down R3 es esencial para garantizar un comportamiento predecible.',
+    fb_ko: 'Revisa los conceptos de pull-down, saturación del transistor y la función de R2 como limitador de corriente de Base.',
+  }
+];
+
+var state = { round:0, pts:0, ok:0, fail:0, verified:false };
+var draggingId = null;
+var touchClone = null;
+var placed = {}; // zoneId → cardId
+
+function shuffle(arr){
+  var a=arr.slice();
+  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+  return a;
+}
+
+function init(){
+  state={round:0,pts:0,ok:0,fail:0,verified:false};
+  placed={};
+  document.getElementById('resultsCard').classList.remove('show');
+  document.getElementById('gameArea').style.display='';
+  renderRound();
+}
+
+function renderRound(){
+  state.verified=false;
+  placed={};
+  var R=ROUNDS[state.round];
+  document.getElementById('round-header').textContent='RONDA '+String(state.round+1).padStart(2,'0')+' / 03';
+  document.getElementById('q-label').textContent=R.q;
+  document.getElementById('prog-label').textContent='Ronda '+(state.round+1)+' de 3';
+  document.getElementById('prog-fill').style.width=((state.round/3)*100)+'%';
+
+  // Pool
+  var pool=document.getElementById('pool');
+  pool.innerHTML='';
+  shuffle(R.cards).forEach(function(c){
+    pool.appendChild(makeCard(c.id,c.text));
+  });
+
+  // Zones
+  var zonesEl=document.getElementById('zones');
+  zonesEl.innerHTML='';
+  R.zones.forEach(function(z){
+    var div=document.createElement('div');
+    div.className='drop-zone'; div.id=z.id;
+    div.innerHTML='<div class="zone-label">'+z.label+'</div><div class="zone-content" id="zc-'+z.id+'"></div><div class="hint" id="hint-'+z.id+'"></div>';
+    div.addEventListener('dragover',function(e){e.preventDefault();div.classList.add('drag-over');});
+    div.addEventListener('dragleave',function(){div.classList.remove('drag-over');});
+    div.addEventListener('drop',function(e){e.preventDefault();div.classList.remove('drag-over');if(draggingId)placeCard(draggingId,z.id);});
+    zonesEl.appendChild(div);
+  });
+
+  var fb=document.getElementById('feedback');
+  fb.classList.remove('show','ok','ko');
+  document.getElementById('btn-next').classList.remove('show');
+  document.getElementById('btn-check').style.display='';
+  updateScore();
+}
+
+function makeCard(id,text){
+  var el=document.createElement('div');
+  el.className='card'; el.id='card-'+id; el.textContent=text;
+  el.setAttribute('draggable','true');
+  el.addEventListener('dragstart',function(e){draggingId=id;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+  el.addEventListener('dragend',function(){el.classList.remove('dragging');draggingId=null;});
+  // Touch
+  el.addEventListener('touchstart',function(e){
+    e.preventDefault(); draggingId=id; el.style.opacity='0.35';
+    var t=e.touches[0];
+    touchClone=document.createElement('div');
+    touchClone.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:var(--panel);border:1.5px solid var(--cyan);color:var(--cyan);font-family:Share Tech Mono,monospace;font-size:13px;padding:10px 16px;border-radius:4px;';
+    touchClone.textContent=text.substring(0,40);
+    touchClone.style.left=(t.clientX-60)+'px'; touchClone.style.top=(t.clientY-25)+'px';
+    document.body.appendChild(touchClone);
+  },{passive:false});
+  el.addEventListener('touchmove',function(e){
+    e.preventDefault(); if(!touchClone)return;
+    var t=e.touches[0];
+    touchClone.style.left=(t.clientX-60)+'px'; touchClone.style.top=(t.clientY-25)+'px';
+    document.querySelectorAll('.drop-zone').forEach(function(z){z.classList.remove('drag-over');});
+    var els=document.elementsFromPoint(t.clientX,t.clientY);
+    for(var i=0;i<els.length;i++){var z=els[i].closest&&els[i].closest('.drop-zone');if(z){z.classList.add('drag-over');break;}}
+  },{passive:false});
+  el.addEventListener('touchend',function(e){
+    if(touchClone){touchClone.remove();touchClone=null;} el.style.opacity='';
+    document.querySelectorAll('.drop-zone').forEach(function(z){z.classList.remove('drag-over');});
+    var t=e.changedTouches[0],els=document.elementsFromPoint(t.clientX,t.clientY),zoneId=null;
+    for(var i=0;i<els.length;i++){var z=els[i].closest&&els[i].closest('.drop-zone');if(z){zoneId=z.id;break;}}
+    if(zoneId)placeCard(id,zoneId);
+    draggingId=null;
+  });
+  return el;
+}
+
+function placeCard(cardId,zoneId){
+  if(state.verified)return;
+  // If zone already has a card, return it to pool
+  if(placed[zoneId]){
+    var old=placed[zoneId];
+    var pool=document.getElementById('pool');
+    var R=ROUNDS[state.round];
+    var cardDef=R.cards.find(function(c){return c.id===old;});
+    pool.appendChild(makeCard(old,cardDef?cardDef.text:old));
+  }
+  // Remove card from its current zone if it was placed elsewhere
+  for(var z in placed){if(placed[z]===cardId){delete placed[z];document.getElementById('zc-'+z).innerHTML='';break;}}
+  // Remove from pool if there
+  var poolCard=document.getElementById('card-'+cardId);
+  if(poolCard)poolCard.remove();
+  placed[zoneId]=cardId;
+  // Show in zone
+  var R=ROUNDS[state.round];
+  var cardDef=R.cards.find(function(c){return c.id===cardId;});
+  var zc=document.getElementById('zc-'+zoneId);
+  zc.innerHTML='';
+  var cardEl=makeCard(cardId,cardDef?cardDef.text:cardId);
+  cardEl.style.cursor='pointer';
+  cardEl.title='Clic para devolver al panel';
+  cardEl.onclick=function(){returnCard(cardId,zoneId);};
+  zc.appendChild(cardEl);
+}
+
+function returnCard(cardId,zoneId){
+  if(state.verified)return;
+  delete placed[zoneId];
+  document.getElementById('zc-'+zoneId).innerHTML='';
+  var R=ROUNDS[state.round];
+  var cardDef=R.cards.find(function(c){return c.id===cardId;});
+  document.getElementById('pool').appendChild(makeCard(cardId,cardDef?cardDef.text:cardId));
+}
+
+function checkRound(){
+  var R=ROUNDS[state.round];
+  var allCorrect=true; var anyPlaced=Object.keys(placed).length>0;
+  if(!anyPlaced){
+    showFeedback(false,'⚠ ATENCIÓN','Coloca al menos un componente antes de verificar.');
+    return;
+  }
+  state.verified=true;
+  document.getElementById('btn-check').style.display='none';
+  R.zones.forEach(function(z){
+    var zEl=document.getElementById(z.id);
+    var got=placed[z.id];
+    var correct=got===z.correct;
+    if(correct){
+      zEl.classList.add('correct'); zEl.classList.remove('wrong');
+      state.pts=Math.max(0,state.pts+80); state.ok++;
+    } else {
+      zEl.classList.add('wrong'); zEl.classList.remove('correct');
+      state.pts=Math.max(0,state.pts-10); state.fail++;
+      allCorrect=false;
+      document.getElementById('hint-'+z.id).textContent='→ '+z.hint;
+    }
+  });
+  showFeedback(allCorrect, allCorrect?'✓ RONDA COMPLETADA':'✗ REVISA LOS ERRORES', allCorrect?R.fb_ok:R.fb_ko);
+  updateScore();
+  setTimeout(function(){document.getElementById('btn-next').classList.add('show');},1800);
+}
+
+function showFeedback(ok,title,msg){
+  var fb=document.getElementById('feedback');
+  fb.classList.remove('show','ok','ko');
+  document.getElementById('fb-title').textContent=title;
+  document.getElementById('fb-msg').textContent=msg;
+  fb.classList.add('show',ok?'ok':'ko');
+}
+
+function updateScore(){
+  document.getElementById('pts').textContent=state.pts;
+  document.getElementById('ok').textContent=state.ok;
+  document.getElementById('fail').textContent=state.fail;
+}
+
+function nextRound(){
+  state.round++;
+  document.getElementById('btn-next').classList.remove('show');
+  if(state.round>=3){showResults();return;}
+  renderRound();
+}
+
+function showResults(){
+  document.getElementById('gameArea').style.display='none';
+  var card=document.getElementById('resultsCard'); card.classList.add('show');
+  var maxPts=ROUNDS.reduce(function(s,r){return s+r.zones.length*80;},0);
+  var pct=Math.min(100,Math.max(0,Math.round(state.pts/maxPts*100)));
+  document.getElementById('res-pct').textContent=pct+'%';
+  document.getElementById('r-pts').textContent=state.pts;
+  document.getElementById('r-ok').textContent=state.ok;
+  document.getElementById('r-fail').textContent=state.fail;
+  var title,msg;
+  if(pct>=85){title='🏆 Resultado sobresaliente';msg='Dominas los componentes del circuito con transistor. Estás listo para añadir el diodo flyback en la clase 1.3.';}
+  else if(pct>=65){title='✅ Resultado superado';msg='Buen trabajo. Repasa los componentes donde fallaste antes de continuar con la clase 1.3.';}
+  else if(pct>=45){title='📖 Buen intento';msg='Repasa la teoría de la clase 1.2, especialmente la función del pull-down R3 y los terminales del transistor.';}
+  else{title='💪 ¡Ánimo!';msg='No te preocupes. Repasa la teoría con calma y vuelve a intentarlo.';}
+  document.getElementById('res-title').textContent=title;
+  document.getElementById('res-msg').textContent=msg;
+  document.getElementById('prog-fill').style.width='100%';
+  document.getElementById('prog-label').textContent='¡Completado!';
+}
+
+function restart(){init();}
+init();
+</script>
+</body>
+</html>

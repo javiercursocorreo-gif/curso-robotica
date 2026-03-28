@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.3 Simulación - Diodo Flyback en acción</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080f;--panel:#0d1117;--panel2:#111520;--p1:#3b82f6;--p2:#f59e0b;--p3:#10b981;--p4:#ef4444;--text:#c8d8f0;--textdim:#445566;--border:#1a2535;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:24px 0 18px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--p1);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:17px;color:var(--p2);font-weight:700;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.sim-wrap{background:var(--panel);border:1px solid var(--border);padding:16px;margin-bottom:14px;}
+canvas{display:block;margin:0 auto;max-width:100%;}
+.controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.btn-s{flex:1;min-width:140px;padding:14px;border:2px solid;font-family:'Syne',sans-serif;font-size:12px;letter-spacing:2px;font-weight:700;cursor:pointer;transition:all .15s;text-align:center;}
+.btn-run{background:#0d3a1c;border-color:var(--p3);color:var(--p3);}
+.btn-run:hover,.btn-run.act{background:var(--p3);color:#000;}
+.btn-off{background:#1a0820;border-color:var(--p4);color:var(--p4);}
+.btn-off:hover,.btn-off.act{background:var(--p4);color:#fff;}
+.btn-toggle{background:var(--panel2);border-color:var(--p1);color:var(--p1);}
+.btn-toggle:hover{background:#0d1d3a;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;}
+.ib{background:var(--panel2);border:1px solid var(--border);padding:10px;text-align:center;}
+.il{font-size:9px;color:var(--textdim);letter-spacing:2px;margin-bottom:3px;}
+.iv{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+.iv.on{color:var(--p3);}.iv.off{color:var(--textdim);}.iv.warn{color:var(--p2);}.iv.danger{color:var(--p4);}
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--p1);padding:14px 16px;font-size:13px;line-height:1.7;color:var(--textdim);}
+.explainer strong{color:var(--p2);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.3</div>
+    <h1>El diodo flyback absorbiendo el pico de tensión</h1>
+    <p class="hsub">Activa y desactiva el motor para ver cómo protege el diodo al transistor</p>
+  </header>
+  <div class="sim-wrap"><canvas id="c" width="680" height="340"></canvas></div>
+  <div class="controls">
+    <button class="btn-s btn-run" id="btnRun" onclick="setPhase('run')">▶ MOTOR EN MARCHA</button>
+    <button class="btn-s btn-off" id="btnOff" onclick="setPhase('off')">⏹ CORTAR CORRIENTE</button>
+    <button class="btn-s btn-toggle" id="btnToggle" onclick="toggleDiode()">🔀 QUITAR/PONER DIODO</button>
+  </div>
+  <div class="info-grid">
+    <div class="ib"><div class="il">MOTOR</div><div class="iv" id="iv-m">PARADO</div></div>
+    <div class="ib"><div class="il">PICO TENSIÓN</div><div class="iv" id="iv-pk">0 V</div></div>
+    <div class="ib"><div class="il">DIODO</div><div class="iv" id="iv-d">BLOQUEADO</div></div>
+    <div class="ib"><div class="iv" id="iv-npn">TRANSISTOR OK</div></div>
+  </div>
+  <div class="explainer" id="expl"><strong>Estado inicial:</strong> Motor parado. Transistor en corte. Diodo en polarización inversa (no conduce).</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),W=680,H=340;
+var phase='idle'; // idle, run, spike, protected, damaged
+var diodePresent=true;
+var motorAngle=0,motorSpeed=0;
+var spikeAnim=0; // 0..1 spike animation progress
+var particles=[];
+var rafId=null;
+
+function setPhase(p){
+  if(p==='run'){phase='run';updateInfo();}
+  else if(p==='off'){
+    if(phase==='run'){phase='spike';spikeAnim=0;setTimeout(function(){phase=diodePresent?'protected':'damaged';updateInfo();},1200);}
+    else{phase='idle';updateInfo();}
+  }
+  document.getElementById('btnRun').classList.toggle('act',phase==='run');
+  document.getElementById('btnOff').classList.toggle('act',phase==='idle'||phase==='spike');
+}
+function toggleDiode(){diodePresent=!diodePresent;updateInfo();}
+function updateInfo(){
+  var set=function(id,t,c){var e=document.getElementById(id);e.textContent=t;e.className='iv '+c;};
+  document.getElementById('btnToggle').textContent=(diodePresent?'❌ QUITAR DIODO':'✅ PONER DIODO');
+  if(phase==='run'){
+    set('iv-m','GIRANDO','on');set('iv-pk','0 V','off');set('iv-d','BLOQUEADO','off');set('iv-npn','TRANSISTOR OK','on');
+    document.getElementById('expl').innerHTML='<strong>Motor en marcha:</strong> El transistor conduce. El diodo está en polarización inversa y no conduce. La corriente fluye normalmente del Colector al Emisor.';
+  } else if(phase==='spike'){
+    set('iv-m','PARANDO...','warn');set('iv-pk','~80 V','danger');set('iv-d',diodePresent?'CONDUCIENDO':'AUSENTE','warn');set('iv-npn',diodePresent?'PROTEGIDO':'¡PELIGRO!',diodePresent?'on':'danger');
+    document.getElementById('expl').innerHTML='<strong>Pico inductivo:</strong> El campo magnético del motor colapsa. Se induce una tensión inversa de ~80 V. '+( diodePresent?'El diodo conduce el pico en bucle cerrado, protegiéndolo todo.':'¡Sin diodo el pico llega directamente al transistor!');
+  } else if(phase==='protected'){
+    set('iv-m','PARADO','off');set('iv-pk','0 V','off');set('iv-d','BLOQUEADO','off');set('iv-npn','TRANSISTOR OK','on');
+    document.getElementById('expl').innerHTML='<strong>Pico absorbido:</strong> El diodo flyback ha disipado el pico inductivo en un bucle cerrado. El transistor no ha recibido tensión dañina. Sistema protegido.';
+  } else if(phase==='damaged'){
+    set('iv-m','PARADO','off');set('iv-pk','0 V','off');set('iv-d','AUSENTE','off');set('iv-npn','⚠ DAÑADO','danger');
+    document.getElementById('expl').innerHTML='<strong>Sin diodo:</strong> El pico de tensión inversa (~80 V) ha alcanzado el transistor. En un sistema real esto podría destruirlo. En Tinkercad no hay consecuencias visibles, pero en la realidad el transistor fallaría.';
+  } else {
+    set('iv-m','PARADO','off');set('iv-pk','0 V','off');set('iv-d','BLOQUEADO','off');set('iv-npn','TRANSISTOR OK','on');
+    document.getElementById('expl').innerHTML='<strong>Estado inicial:</strong> Motor parado. Transistor en corte. Diodo en polarización inversa (no conduce).';
+  }
+}
+
+function drawBg(){ctx.strokeStyle='rgba(26,37,53,0.5)';ctx.lineWidth=0.5;for(var x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(var y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}}
+function col(c,a){return 'rgba('+{run:[0,224,96],idle:[30,50,70],spike:[239,68,68],blue:[59,130,246]}[c].join(',')+','+(a||1)+')';}
+
+function drawWire(pts,c,w){ctx.strokeStyle=c;ctx.lineWidth=w||2.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.stroke();}
+
+function circuitColor(){return phase==='run'?col('run'):col('idle');}
+
+function drawCircuit(){
+  // Top rail
+  drawWire([[60,60],[580,60]],circuitColor());
+  // Bottom rail
+  drawWire([[60,280],[580,280]],'rgba(50,70,100,0.8)');
+  // Pila
+  ctx.fillStyle='#0d1117';ctx.strokeStyle=circuitColor();ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(36,100,48,120,4);ctx.fill();ctx.stroke();
+  ctx.font='bold 13px JetBrains Mono';ctx.textAlign='center';ctx.fillStyle='#c8d8f0';
+  ctx.fillText('+',60,122);ctx.fillText('−',60,208);
+  ctx.font='10px JetBrains Mono';ctx.fillStyle='#445566';ctx.fillText('9V',60,165);
+  drawWire([[60,100],[60,60]],circuitColor());drawWire([[60,220],[60,280]],'rgba(50,70,100,0.8)');
+  // Transistor
+  var tx=280,ty=145;
+  ctx.beginPath();ctx.arc(tx+40,ty+40,38,0,Math.PI*2);
+  ctx.fillStyle='#07080f';
+  ctx.strokeStyle=(phase==='damaged')?col('spike'):circuitColor();ctx.lineWidth=2;
+  ctx.fill();ctx.stroke();
+  ctx.font='bold 10px Syne,monospace';ctx.textAlign='center';ctx.fillStyle=(phase==='damaged')?col('spike'):circuitColor();
+  ctx.fillText(phase==='damaged'?'DAÑADO':'NPN',tx+40,ty+44);
+  drawWire([[tx+78,ty+28],[580,ty+28],[580,60]],circuitColor());
+  drawWire([[tx+78,ty+52],[580,ty+52],[580,280]],'rgba(50,70,100,0.8)');
+  // Motor
+  var mx=460,my=125;
+  ctx.beginPath();ctx.arc(mx+40,my+40,35,0,Math.PI*2);
+  ctx.fillStyle='#07080f';ctx.strokeStyle=circuitColor();ctx.lineWidth=2;ctx.fill();ctx.stroke();
+  ctx.save();ctx.translate(mx+40,my+40);ctx.rotate(motorAngle);
+  ctx.strokeStyle=phase==='run'?col('run',0.9):'rgba(30,50,70,0.8)';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(-28,0);ctx.lineTo(28,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-28);ctx.lineTo(0,28);ctx.stroke();
+  ctx.restore();
+  ctx.font='bold 11px Syne,monospace';ctx.fillStyle=circuitColor();ctx.textAlign='center';ctx.fillText('M',mx+40,my+40+5);
+  drawWire([[mx,my+25],[mx,60]],circuitColor());
+  drawWire([[mx,my+55],[mx,280]],'rgba(50,70,100,0.8)');
+  // Diode
+  if(diodePresent){
+    var dx=400,dy=125;
+    ctx.save();ctx.translate(dx,dy+40);
+    var dc=phase==='spike'?col('spike'):col('idle',0.7);
+    ctx.fillStyle=phase==='spike'?'rgba(239,68,68,0.2)':'rgba(59,130,246,0.1)';
+    ctx.strokeStyle=dc;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(-12,-14);ctx.lineTo(12,0);ctx.lineTo(-12,14);ctx.closePath();
+    ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(12,-14);ctx.lineTo(12,14);ctx.stroke();
+    if(phase==='spike'){
+      ctx.strokeStyle='rgba(239,68,68,0.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-12,0);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(20,0);ctx.stroke();
+    }
+    ctx.restore();
+    ctx.font='9px JetBrains Mono';ctx.fillStyle='#445566';ctx.textAlign='center';
+    ctx.fillText('FLYBACK',dx,dy+90);
+    // Diode wire (parallel to motor)
+    ctx.strokeStyle=phase==='spike'?col('spike',0.7):'rgba(50,70,120,0.4)';
+    ctx.lineWidth=1.5;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(dx,dy+26);ctx.lineTo(dx,60);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dx,dy+54);ctx.lineTo(dx,280);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // Spike visualization
+  if(phase==='spike'&&spikeAnim<1){
+    var alpha=Math.sin(spikeAnim*Math.PI)*0.8;
+    ctx.strokeStyle='rgba(239,68,68,'+alpha+')';ctx.lineWidth=3*(1-spikeAnim)+1;
+    ctx.beginPath();ctx.moveTo(mx,my+25);
+    ctx.lineTo(mx-20*spikeAnim,my+25-40*spikeAnim);
+    ctx.lineTo(mx,my+25-20*spikeAnim);
+    ctx.stroke();
+    ctx.font='bold 12px Syne,monospace';ctx.fillStyle='rgba(239,68,68,'+alpha+')';ctx.textAlign='center';
+    ctx.fillText('~80V',mx+35,my+25-50*spikeAnim);
+  }
+}
+
+function loop(){
+  ctx.clearRect(0,0,W,H);drawBg();
+  if(phase==='run')motorSpeed=Math.min(motorSpeed+0.01,0.09);
+  else motorSpeed=Math.max(motorSpeed-0.005,0);
+  motorAngle+=motorSpeed;
+  if(phase==='spike')spikeAnim=Math.min(spikeAnim+0.015,1);
+  drawCircuit();
+  rafId=requestAnimationFrame(loop);
+}
+loop();updateInfo();
+</script>
+</body>
+</html>

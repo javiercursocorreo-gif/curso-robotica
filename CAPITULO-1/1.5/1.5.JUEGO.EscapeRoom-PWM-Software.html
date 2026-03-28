@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.5 Escape Room - Control de velocidad PWM</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060d14;--panel:#0a1520;--panel2:#0d1c2a;--cyan:#00d4ff;--cyan2:#0099cc;--cyan3:#004466;--green:#00e060;--green2:#007a30;--yellow:#ffdd00;--red:#ff3355;--text:#b0d8e8;--textdim:#3a6a80;--border:#0d2d40;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:18px;color:var(--cyan);font-weight:700;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--cyan);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--cyan);}
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);padding:12px 16px;margin-bottom:24px;}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sl{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.sv{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;}
+.sv.pts{color:var(--cyan);}.sv.ok{color:var(--green);}.sv.fail{color:var(--red);}
+.pw{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.pl{font-size:10px;color:var(--textdim);}
+.pb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pf{height:100%;background:var(--cyan);transition:width .4s;}
+.room-hdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.room-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:700;color:var(--cyan);}
+.room-lock{font-size:24px;}
+.room-title{font-family:'Syne',sans-serif;font-size:14px;color:var(--yellow);font-weight:700;}
+.rooms-nav{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+.room-dot{width:36px;height:36px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--textdim);}
+.room-dot.done{border-color:var(--green);color:var(--green);background:#001a08;}
+.room-dot.active{border-color:var(--cyan);color:var(--cyan);}
+.scenario{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--yellow);padding:18px;margin-bottom:18px;font-size:14px;line-height:1.7;color:var(--text);}
+.scenario .label{font-family:'Syne',sans-serif;font-size:10px;color:var(--yellow);letter-spacing:3px;margin-bottom:8px;}
+.options-er{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.opt-er{background:var(--panel2);border:1.5px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:14px 16px;text-align:left;cursor:pointer;transition:border-color .15s,background .15s;line-height:1.4;}
+.opt-er:hover:not(:disabled){border-color:var(--cyan);background:#0d2030;}
+.opt-er .ok-tag{color:var(--green);}
+.opt-er.correct{border-color:var(--green);background:#001a08;color:var(--green);}
+.opt-er.wrong{border-color:var(--red);background:#1a0008;color:var(--red);}
+.fb-box{padding:14px 18px;border-left:4px solid;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+.fb-box.show{display:block;}
+.fb-box.ok{border-color:var(--green);background:#001a08;color:#80ffbb;}
+.fb-box.ko{border-color:var(--red);background:#1a0008;color:#ffaaaa;}
+.fb-title{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:2px;font-weight:700;margin-bottom:5px;}
+.btn-next{display:none;width:100%;background:var(--green2);border:1px solid var(--green);color:#fff;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px;cursor:pointer;}
+.btn-next:hover{background:var(--green);}
+.btn-next.show{display:block;}
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Syne',sans-serif;font-size:56px;font-weight:700;color:var(--cyan);margin-bottom:8px;}
+.res-title{font-family:'Syne',sans-serif;font-size:22px;color:var(--green);margin-bottom:12px;font-weight:700;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.rs{text-align:center;}.rsv{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;}
+.g{color:var(--green);}.r{color:var(--red);}.a{color:var(--cyan);}
+.rsl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--cyan2);border:1px solid var(--cyan);color:#000;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px 32px;cursor:pointer;}
+.btn-restart:hover{background:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Escape Room: Control de velocidad PWM</h1>
+    <p class="hsub">Clase 1.5 — Resuelve 5 problemas de ingeniería para escapar</p>
+  </header>
+  <div class="instr"><span>Instrucciones:</span> Cada sala plantea un problema real. Elige la opción correcta para abrir la puerta. <span>+200 pts</span> por sala · solo la opción correcta abre la siguiente sala.</div>
+  <div class="score-bar">
+    <div class="si"><span class="sl">PUNTOS</span><span class="sv pts" id="pts">0</span></div>
+    <div class="si"><span class="sl">SALAS</span><span class="sv ok" id="ok">0/5</span></div>
+    <div class="si"><span class="sl">FALLOS</span><span class="sv fail" id="fail">0</span></div>
+    <div class="pw"><div class="pl" id="pl">Sala 1 de 5</div><div class="pb"><div class="pf" id="pf" style="width:0%"></div></div></div>
+  </div>
+  <div id="gameArea">
+    <div class="rooms-nav" id="roomsNav"></div>
+    <div class="room-hdr"><div class="room-num" id="roomNum">01</div><div class="room-lock" id="roomLock">🔒</div><div class="room-title" id="roomTitle"></div></div>
+    <div class="scenario"><div class="label">ESCENARIO</div><div id="scenario"></div></div>
+    <div class="options-er" id="optionsEr"></div>
+    <div class="fb-box" id="fb"><div class="fb-title" id="fbt"></div><div id="fbm"></div></div>
+    <button class="btn-next" id="btnNext" onclick="nextRoom()">SIGUIENTE SALA ›</button>
+  </div>
+  <div class="results-card" id="rc">
+    <div class="res-pct" id="rpct"></div>
+    <div class="res-title" id="rtitle"></div>
+    <div class="res-msg" id="rmsg"></div>
+    <div class="res-stats">
+      <div class="rs"><div class="rsv a" id="rpts"></div><div class="rsl">PUNTOS</div></div>
+      <div class="rs"><div class="rsv g" id="rok"></div><div class="rsl">SALAS</div></div>
+      <div class="rs"><div class="rsv r" id="rfail"></div><div class="rsl">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+<script>
+var ROOMS=[
+  {title:"El motor no responde",
+   scenario:"Has conectado el circuito de la clase 1.5 pero el motor no gira aunque la simulación está activa. El LED de la placa Arduino está encendido. ¿Cuál es el problema más probable?",
+   opts:["El valor de analogWrite() es 0 en el código — el transistor no recibe señal","La pila está agotada y no hay energía en el circuito","El motor está averiado y hay que sustituirlo","Arduino no está correctamente instalado en Tinkercad"],
+   correct:0,
+   fb:"Correcto. analogWrite(pin, 0) produce un duty cycle del 0%: el transistor nunca conduce y el motor no recibe corriente. Es el error más frecuente al empezar. Hay que asegurarse de que el valor sea mayor que 0."},
+  {title:"La velocidad no cambia",
+   scenario:"El motor gira pero siempre a la misma velocidad aunque cambias el valor de analogWrite() entre 64 y 255 en el código. ¿Cuál es la causa más probable?",
+   opts:["El pin 9 está conectado a R2 y R2 a la Base, pero el pin declarado en el código es el pin 8","El diodo flyback está impidiendo el paso de la señal PWM","R2 es demasiado pequeña y satura el transistor a cualquier valor","El condensador C1 del NE555 está almacenando la carga"],
+   correct:0,
+   fb:"Correcto. Si en el código se declara 'const int pinMotor = 8' pero el cable va al pin 9, Arduino no está enviando PWM por el pin correcto. El pin 8 no tiene capacidad PWM en Arduino UNO. Hay que asegurarse de que el pin físico y el pin del código coincidan."},
+  {title:"El motor vibra pero no gira",
+   scenario:"El motor vibra a baja frecuencia y no gira de forma continua. Parece que se activa y desactiva muy lentamente. ¿Qué ha ocurrido?",
+   opts:["El valor del delay() es muy pequeño y el motor no tiene tiempo de responder correctamente","Se ha conectado el pin 3 del NE555 a la Base en lugar del pin 9 de Arduino, generando una frecuencia muy baja","El transistor está roto y hay que reemplazarlo","La resistencia R2 es demasiado grande y limita la corriente de Base"],
+   correct:1,
+   fb:"Correcto. Si accidentalmente se conecta el pin 3 del NE555 (que oscila a baja frecuencia de sonido) en lugar del pin 9 de Arduino (que genera PWM a ~490 Hz), el motor percibe un ciclo muy lento y vibra en lugar de girar uniformemente."},
+  {title:"El motor se para al mínimo",
+   scenario:"A velocidades bajas (analogWrite menor de 50) el motor se para completamente en lugar de girar lento. ¿Por qué ocurre esto?",
+   opts:["Es normal: el motor real tiene una tensión mínima de arranque. Por debajo de cierto duty cycle la corriente media es insuficiente para vencer la fricción","El transistor está defectuoso y hay que sustituirlo","Hay que aumentar la tensión de la pila a 12V para que el motor gire lento","El diodo flyback está bloqueando la señal a valores bajos"],
+   correct:0,
+   fb:"Correcto. Los motores DC tienen una tensión mínima de arranque. Por debajo de un cierto duty cycle, la corriente media que reciben es demasiado pequeña para vencer la fricción estática. En Tinkercad esto no siempre es visible porque el motor está idealizado, pero en un sistema real es un fenómeno real e importante."},
+  {title:"El código no compila",
+   scenario:"Al cargar el código en la simulación Tinkercad aparece un error de compilación. El código contiene la línea: 'analogWrite(pinMotor, dutyCycle);' donde dutyCycle es una variable declarada como 'int dutyCycle = 127'. ¿Qué está mal?",
+   opts:["Nada: el código es correcto y debería compilar sin errores","La variable dutyCycle debería declararse como 'float', no como 'int'","La función analogWrite no acepta variables, solo valores literales como analogWrite(9, 127)","El pin debe declararse con 'const float' en lugar de 'const int'"],
+   correct:0,
+   fb:"Correcto. El código es perfectamente válido. analogWrite() acepta tanto valores literales como variables de tipo int. Si hay un error de compilación, la causa está en otro lugar del código, no en esta línea."}
+];
+var state={room:0,pts:0,ok:0,fail:0};
+var roomDone=[];
+function init(){state={room:0,pts:0,ok:0,fail:0};roomDone=[];document.getElementById('rc').classList.remove('show');document.getElementById('gameArea').style.display='';renderRoom();}
+function renderNav(){
+  var nav=document.getElementById('roomsNav');nav.innerHTML='';
+  for(var i=0;i<5;i++){
+    var d=document.createElement('div');
+    d.className='room-dot'+(roomDone[i]?' done':i===state.room?' active':'');
+    d.textContent=roomDone[i]?'✓':(i+1);
+    nav.appendChild(d);
+  }
+}
+function renderRoom(){
+  var R=ROOMS[state.room];
+  document.getElementById('roomNum').textContent=String(state.room+1).padStart(2,'0');
+  document.getElementById('roomLock').textContent='🔒';
+  document.getElementById('roomTitle').textContent=R.title;
+  document.getElementById('scenario').textContent=R.scenario;
+  document.getElementById('pl').textContent='Sala '+(state.room+1)+' de 5';
+  document.getElementById('pf').style.width=((state.room/5)*100)+'%';
+  document.getElementById('fb').classList.remove('show','ok','ko');
+  document.getElementById('btnNext').classList.remove('show');
+  renderNav();
+  // Shuffle options keeping track of correct
+  var idxs=[0,1,2,3];
+  var shuffled=idxs.slice();for(var i=shuffled.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=shuffled[i];shuffled[i]=shuffled[j];shuffled[j]=t;}
+  var opts=document.getElementById('optionsEr');opts.innerHTML='';
+  var letters=['A','B','C','D'];
+  shuffled.forEach(function(origIdx,pos){
+    var btn=document.createElement('button');
+    btn.className='opt-er';
+    btn.innerHTML='<strong>'+letters[pos]+'.</strong> '+R.opts[origIdx];
+    btn.onclick=(function(b,oi){return function(){selectOpt(b,oi);};})(btn,origIdx);
+    opts.appendChild(btn);
+  });
+  updateScore();
+}
+function selectOpt(btn,optIdx){
+  var R=ROOMS[state.room];
+  var correct=optIdx===R.correct;
+  var allBtns=document.querySelectorAll('.opt-er');
+  if(correct){
+    allBtns.forEach(function(b){b.disabled=true;});
+    btn.classList.add('correct');
+    state.pts+=200;state.ok++;
+    roomDone[state.room]=true;
+    document.getElementById('roomLock').textContent='🔓';
+    showFb(true,'🔓 SALA DESBLOQUEADA — +200 pts',R.fb);
+    renderNav();
+    setTimeout(function(){document.getElementById('btnNext').classList.add('show');},1800);
+  } else {
+    btn.classList.add('wrong');btn.disabled=true;state.fail++;state.pts=Math.max(0,state.pts-10);
+    showFb(false,'✗ INCORRECTO — −10 pts','Esa no es la respuesta correcta. Analiza de nuevo el escenario y prueba con otra opción.');
+  }
+  updateScore();
+}
+function showFb(ok,t,m){var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');document.getElementById('fbt').textContent=t;document.getElementById('fbm').textContent=m;fb.classList.add('show',ok?'ok':'ko');}
+function updateScore(){document.getElementById('pts').textContent=state.pts;document.getElementById('ok').textContent=state.ok+'/5';document.getElementById('fail').textContent=state.fail;}
+function nextRoom(){state.room++;document.getElementById('btnNext').classList.remove('show');if(state.room>=5){showResults();return;}renderRoom();}
+function showResults(){
+  document.getElementById('gameArea').style.display='none';document.getElementById('rc').classList.add('show');
+  var maxPts=1000;var pct=Math.min(100,Math.max(0,Math.round(state.pts/maxPts*100)));
+  document.getElementById('rpct').textContent=pct+'%';document.getElementById('rpts').textContent=state.pts;
+  document.getElementById('rok').textContent=state.ok+'/5';document.getElementById('rfail').textContent=state.fail;
+  var t,m;
+  if(pct>=85){t='🏆 Escapaste con distinción';m='Has resuelto todos los problemas de ingeniería PWM. Estás listo para el control hardware con el NE555 en la clase 1.6.';}
+  else if(pct>=65){t='✅ Has escapado';m='Buen trabajo. Repasa las salas donde fallaste antes de continuar con la clase 1.6.';}
+  else if(pct>=45){t='📖 Casi escapas';m='Repasa la teoría de la clase 1.5 sobre analogWrite() y los pines PWM de Arduino.';}
+  else{t='💪 La próxima vez escaparás';m='Repasa la teoría con calma y vuelve a intentarlo. Cada intento es un aprendizaje.';}
+  document.getElementById('rtitle').textContent=t;document.getElementById('rmsg').textContent=m;
+  document.getElementById('pf').style.width='100%';document.getElementById('pl').textContent='¡Escapado!';
+}
+function restart(){init();}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.6 Simulación - NE555 PWM con potenciómetro</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080f;--panel:#0d1117;--panel2:#111520;--p1:#3b82f6;--p2:#f59e0b;--p3:#10b981;--p4:#ef4444;--text:#c8d8f0;--textdim:#445566;--border:#1a2535;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:24px 0 16px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--p1);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:17px;color:var(--p2);font-weight:700;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.osc-wrap{background:var(--panel);border:1px solid var(--border);padding:14px;margin-bottom:14px;}
+canvas.osc{display:block;margin:0 auto;background:#050610;max-width:100%;}
+.pot-wrap{background:var(--panel2);border:1px solid var(--border);padding:16px;margin-bottom:14px;}
+.pot-title{font-family:'Syne',sans-serif;font-size:10px;color:var(--p2);letter-spacing:3px;margin-bottom:10px;}
+.pot-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.pot-dial{width:80px;height:80px;flex-shrink:0;}
+.pot-controls{flex:1;min-width:200px;}
+.pot-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:var(--p2);margin-bottom:6px;}
+input[type=range]{width:100%;accent-color:var(--p2);}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px;}
+.ib{background:var(--panel2);border:1px solid var(--border);padding:10px;text-align:center;}
+.il{font-size:9px;color:var(--textdim);letter-spacing:2px;margin-bottom:3px;}
+.iv{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--p2);}
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--p2);padding:14px 16px;font-size:13px;line-height:1.7;color:var(--textdim);}
+.explainer strong{color:var(--p2);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.6</div>
+    <h1>NE555 con potenciómetro — PWM por hardware</h1>
+    <p class="hsub">Gira el potenciómetro para cambiar el ciclo de trabajo y la velocidad del motor</p>
+  </header>
+  <div class="osc-wrap">
+    <canvas class="osc" id="osc" width="680" height="160"></canvas>
+  </div>
+  <div class="pot-wrap">
+    <div class="pot-title">POTENCIÓMETRO (0 – 100 kΩ)</div>
+    <div class="pot-row">
+      <canvas class="pot-dial" id="dial" width="80" height="80"></canvas>
+      <div class="pot-controls">
+        <div class="pot-val" id="potVal">50 kΩ</div>
+        <input type="range" id="pot" min="0" max="100" value="50" oninput="updateSim()">
+        <div style="font-size:11px;color:var(--textdim);margin-top:6px;">← Gira el potenciómetro</div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="ib"><div class="il">T_ON (ms)</div><div class="iv" id="ton">—</div></div>
+    <div class="ib"><div class="il">T_OFF (ms)</div><div class="iv" id="toff">—</div></div>
+    <div class="ib"><div class="il">DUTY CYCLE</div><div class="iv" id="dc">—</div></div>
+    <div class="ib"><div class="il">FRECUENCIA</div><div class="iv" id="freq">—</div></div>
+    <div class="ib"><div class="iv" id="motorState" style="color:var(--p3)">GIRANDO</div></div>
+  </div>
+  <div class="explainer" id="expl"></div>
+</div>
+<script>
+var oscCtx=document.getElementById('osc').getContext('2d');
+var dialCtx=document.getElementById('dial').getContext('2d');
+var motorAngle=0,rafId=null;
+
+function getParams(){
+  var pot=parseInt(document.getElementById('pot').value)*1000; // 0..100kΩ
+  var r3=10000; // R3 fija 10kΩ
+  var c1=10e-6; // C1 = 10µF
+  // pot = R4 equivalent (descarga)
+  var ton=0.693*(r3+Math.max(pot,100))*c1*1000;
+  var toff=0.693*Math.max(pot,100)*c1*1000;
+  var period=ton+toff;
+  var duty=ton/period*100;
+  var freq=period>0?1000/period:0;
+  return{ton,toff,period,duty,freq};
+}
+
+function drawDial(pct){
+  var W=80,H=80,cx=W/2,cy=H/2,r=32;
+  dialCtx.clearRect(0,0,W,H);
+  dialCtx.beginPath();dialCtx.arc(cx,cy,r,0,Math.PI*2);
+  dialCtx.fillStyle='#111520';dialCtx.strokeStyle='#f59e0b';dialCtx.lineWidth=1.5;
+  dialCtx.fill();dialCtx.stroke();
+  var angle=(-0.75*Math.PI)+(pct/100)*1.5*Math.PI;
+  dialCtx.save();dialCtx.translate(cx,cy);dialCtx.rotate(angle);
+  dialCtx.strokeStyle='#f59e0b';dialCtx.lineWidth=2.5;
+  dialCtx.beginPath();dialCtx.moveTo(0,0);dialCtx.lineTo(0,-r+8);dialCtx.stroke();
+  dialCtx.restore();
+  dialCtx.beginPath();dialCtx.arc(cx,cy,5,0,Math.PI*2);
+  dialCtx.fillStyle='#f59e0b';dialCtx.fill();
+}
+
+function drawOsc(){
+  var W=680,H=160,p=getParams(),dc=p.duty/100;
+  oscCtx.fillStyle='#050610';oscCtx.fillRect(0,0,W,H);
+  oscCtx.strokeStyle='rgba(59,130,246,0.12)';oscCtx.lineWidth=0.5;
+  for(var x=0;x<W;x+=40){oscCtx.beginPath();oscCtx.moveTo(x,0);oscCtx.lineTo(x,H);oscCtx.stroke();}
+  for(var y=0;y<H;y+=32){oscCtx.beginPath();oscCtx.moveTo(0,y);oscCtx.lineTo(W,y);oscCtx.stroke();}
+  var yH=24,yL=H-24,cycleW=W/4;
+  oscCtx.strokeStyle='#f59e0b';oscCtx.lineWidth=2;oscCtx.beginPath();
+  for(var i=0;i<4;i++){
+    var x0=i*cycleW,onW=dc*cycleW,offW=(1-dc)*cycleW;
+    if(i===0)oscCtx.moveTo(0,yL);
+    oscCtx.lineTo(x0,yH);oscCtx.lineTo(x0+onW,yH);
+    oscCtx.lineTo(x0+onW,yL);oscCtx.lineTo(x0+cycleW,yL);
+  }
+  oscCtx.stroke();
+  // T_ON / T_OFF labels
+  oscCtx.font='9px JetBrains Mono';oscCtx.fillStyle='rgba(245,158,11,0.6)';oscCtx.textAlign='center';
+  oscCtx.fillText('T_ON = '+p.ton.toFixed(1)+'ms',cycleW*0.5*dc,yH-8);
+  oscCtx.fillText('T_OFF = '+p.toff.toFixed(1)+'ms',cycleW*(dc+0.5*(1-dc)),yL+14);
+}
+
+function updateSim(){
+  var v=parseInt(document.getElementById('pot').value);
+  document.getElementById('potVal').textContent=v+' kΩ';
+  drawDial(v);
+  var p=getParams();
+  document.getElementById('ton').textContent=p.ton.toFixed(1);
+  document.getElementById('toff').textContent=p.toff.toFixed(1);
+  document.getElementById('dc').textContent=p.duty.toFixed(0)+'%';
+  document.getElementById('freq').textContent=p.freq.toFixed(2)+' Hz';
+  var spd=p.duty>70?'ALTA':p.duty>40?'MEDIA':p.duty>10?'BAJA':'MÍN.';
+  document.getElementById('motorState').textContent='MOTOR: '+spd;
+  var expl='<strong>T_ON = 0,693 × (R3 + Pot) × C1 = '+p.ton.toFixed(1)+' ms</strong> — tiempo que el transistor conduce.<br>';
+  expl+='<strong>T_OFF = 0,693 × Pot × C1 = '+p.toff.toFixed(1)+' ms</strong> — tiempo que el transistor está cortado.<br>';
+  expl+='Al girar el potenciómetro, solo cambia el tiempo de descarga de C1 (T_OFF). El tiempo de carga (T_ON) también varía porque el potenciómetro forma parte de la red de carga. El resultado es un ciclo de trabajo <strong>'+p.duty.toFixed(0)+'%</strong>.';
+  document.getElementById('expl').innerHTML=expl;
+}
+
+function loop(){
+  var p=getParams();
+  var target=p.duty/100*0.1;
+  motorAngle+=target;
+  drawOsc();
+  rafId=requestAnimationFrame(loop);
+}
+updateSim();loop();
+</script>
+</body>
+</html>

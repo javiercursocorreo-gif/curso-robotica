@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.4 Simulación - Señal NE555 astable</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09100d;--panel:#0d1a10;--panel2:#111f14;--amber:#f0b830;--green:#1aaa3a;--red:#cc2222;--text:#c8e8c2;--textdim:#5a8060;--border:#1e3d22;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;position:relative;z-index:0;}
+header{text-align:center;padding:24px 0 16px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.htag{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Orbitron',monospace;font-size:16px;color:var(--amber);letter-spacing:2px;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.osc-wrap{background:var(--panel);border:1px solid var(--border);padding:14px;margin-bottom:14px;}
+#osc{display:block;margin:0 auto;background:#050e08;}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+@media(max-width:500px){.controls{grid-template-columns:1fr;}}
+.ctrl-box{background:var(--panel2);border:1px solid var(--border);padding:14px;}
+.ctrl-label{font-size:11px;color:var(--textdim);letter-spacing:2px;margin-bottom:6px;}
+.ctrl-name{font-family:'Orbitron',monospace;font-size:13px;color:var(--amber);margin-bottom:10px;}
+.ctrl-val{font-family:'Orbitron',monospace;font-size:20px;color:var(--green);margin-top:8px;text-align:center;}
+input[type=range]{
+  width:100%;height:36px;cursor:pointer;
+  -webkit-appearance:none;appearance:none;
+  background:var(--border);border-radius:4px;outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:28px;height:28px;
+  border-radius:50%;background:var(--amber);cursor:pointer;
+}
+input[type=range]::-moz-range-thumb{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--amber);cursor:pointer;border:none;
+}
+.motor-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+#motorCanvas{display:block;background:transparent;}
+.motor-label{font-family:'Orbitron',monospace;font-size:11px;color:var(--green);letter-spacing:2px;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px;}
+.ib{background:var(--panel2);border:1px solid var(--border);padding:10px;text-align:center;}
+.il{font-size:9px;color:var(--textdim);letter-spacing:2px;margin-bottom:4px;}
+.iv{font-family:'Orbitron',monospace;font-size:14px;color:var(--amber);}
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--amber);
+  padding:14px 16px;font-size:13px;line-height:1.8;color:var(--textdim);}
+.explainer strong{color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.4</div>
+    <h1>Señal del NE555 en modo astable</h1>
+    <p class="hsub">Mueve los sliders de R3, R4 y C1 para ver cómo cambia la señal y la velocidad del motor</p>
+  </header>
+
+  <div class="osc-wrap">
+    <canvas id="osc" width="800" height="200"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-box">
+      <div class="ctrl-label">RED DE TEMPORIZACIÓN</div>
+      <div class="ctrl-name">R3 — resistencia de carga</div>
+      <input type="range" id="r3" min="1" max="100" value="10">
+      <div class="ctrl-val" id="r3v">10 k&#937;</div>
+    </div>
+    <div class="ctrl-box">
+      <div class="ctrl-label">RED DE TEMPORIZACIÓN</div>
+      <div class="ctrl-name">R4 — resistencia de descarga</div>
+      <input type="range" id="r4" min="1" max="100" value="10">
+      <div class="ctrl-val" id="r4v">10 k&#937;</div>
+    </div>
+    <div class="ctrl-box">
+      <div class="ctrl-label">CONDENSADOR</div>
+      <div class="ctrl-name">C1 — condensador de temporización</div>
+      <input type="range" id="c1" min="1" max="100" value="10">
+      <div class="ctrl-val" id="c1v">10 &#956;F</div>
+    </div>
+    <div class="ctrl-box">
+      <div class="ctrl-label">MOTOR DC</div>
+      <div class="motor-wrap">
+        <canvas id="motorCanvas" width="100" height="100"></canvas>
+        <div class="motor-label" id="motorLabel">GIRANDO</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="ib"><div class="il">T_ON (ms)</div><div class="iv" id="ton">—</div></div>
+    <div class="ib"><div class="il">T_OFF (ms)</div><div class="iv" id="toff">—</div></div>
+    <div class="ib"><div class="il">PERÍODO (ms)</div><div class="iv" id="period">—</div></div>
+    <div class="ib"><div class="il">CICLO TRABAJO</div><div class="iv" id="duty">—</div></div>
+    <div class="ib"><div class="il">FRECUENCIA</div><div class="iv" id="freq">—</div></div>
+  </div>
+
+  <div class="explainer" id="expl"></div>
+</div>
+
+<script>
+var oscCanvas = document.getElementById('osc');
+var ctx = oscCanvas.getContext('2d');
+var mCanvas = document.getElementById('motorCanvas');
+var mCtx = mCanvas.getContext('2d');
+var motorAngle = 0;
+var wavePhase = 0; // 0..1, avanza frame a frame independientemente del período real
+
+function getParams(){
+  var r3 = parseInt(document.getElementById('r3').value) * 1000;
+  var r4 = parseInt(document.getElementById('r4').value) * 1000;
+  var c1 = parseInt(document.getElementById('c1').value) * 1e-6;
+  var ton    = 0.693 * (r3 + r4) * c1 * 1000;
+  var toff   = 0.693 * r4 * c1 * 1000;
+  var period = ton + toff;
+  var duty   = period > 0 ? ton / period * 100 : 50;
+  var freq   = period > 0 ? 1000 / period : 0;
+  return {ton:ton, toff:toff, period:period, duty:duty, freq:freq};
+}
+
+function updatePanel(p){
+  document.getElementById('r3v').textContent    = document.getElementById('r3').value + ' kΩ';
+  document.getElementById('r4v').textContent    = document.getElementById('r4').value + ' kΩ';
+  document.getElementById('c1v').textContent    = document.getElementById('c1').value + ' μF';
+  document.getElementById('ton').textContent    = p.ton.toFixed(1);
+  document.getElementById('toff').textContent   = p.toff.toFixed(1);
+  document.getElementById('period').textContent = p.period.toFixed(1);
+  document.getElementById('duty').textContent   = p.duty.toFixed(0) + '%';
+  document.getElementById('freq').textContent   = p.freq.toFixed(2) + ' Hz';
+  var expl = '<strong>T_ON = 0,693 × (R3 + R4) × C1 = ' + p.ton.toFixed(1) + ' ms</strong> — tiempo que el motor está encendido.<br>';
+  expl    += '<strong>T_OFF = 0,693 × R4 × C1 = ' + p.toff.toFixed(1) + ' ms</strong> — tiempo que el motor está apagado.<br>';
+  expl    += 'Ciclo de trabajo: <strong>' + p.duty.toFixed(0) + '%</strong>. ';
+  if(p.duty > 60)       expl += 'El motor está encendido más tiempo que apagado → gira <strong>más rápido</strong>.';
+  else if(p.duty < 40)  expl += 'El motor está apagado más tiempo que encendido → gira <strong>más lento</strong>.';
+  else                  expl += 'El motor está equilibrado entre encendido y apagado → velocidad <strong>media</strong>.';
+  document.getElementById('expl').innerHTML = expl;
+}
+
+function drawOsc(p){
+  var W = oscCanvas.width, H = oscCanvas.height;
+  ctx.fillStyle = '#050e08';
+  ctx.fillRect(0, 0, W, H);
+  // Grid
+  ctx.strokeStyle = 'rgba(26,170,58,0.15)';
+  ctx.lineWidth = 0.5;
+  for(var gx=0; gx<W; gx+=40){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+  for(var gy=0; gy<H; gy+=50){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+  // Labels
+  ctx.font = '11px Share Tech Mono';
+  ctx.fillStyle = '#5a8060';
+  ctx.textAlign = 'left';
+  ctx.fillText('HIGH', 8, 36);
+  ctx.fillText('LOW',  8, H - 14);
+  ctx.fillText('Pin 3 (OUTPUT) NE555', 8, 14);
+  // Onda: dibujamos 4 ciclos con desplazamiento animado wavePhase
+  var duty = p.duty / 100;
+  var margin = 40;
+  var drawW = W - margin;
+  var yH = 30, yL = H - 24;
+  var numCycles = 4;
+  var cycleW = drawW / numCycles;
+  ctx.strokeStyle = '#1aaa3a';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  var started = false;
+  for(var c = -1; c <= numCycles + 1; c++){
+    var cxStart = margin + (c - wavePhase) * cycleW;
+    var onEnd   = cxStart + duty * cycleW;
+    var cxEnd   = cxStart + cycleW;
+    if(cxEnd < margin || cxStart > W) continue;
+    // Subida
+    var drawX = Math.max(margin, cxStart);
+    if(!started){ ctx.moveTo(drawX, duty > 0.5 ? yH : yL); started = true; }
+    else { ctx.lineTo(drawX, yH); }
+    // HIGH
+    ctx.lineTo(Math.min(onEnd, W), yH);
+    // Bajada
+    if(onEnd < W){ ctx.lineTo(onEnd, yL); }
+    // LOW
+    ctx.lineTo(Math.min(cxEnd, W), yL);
+    // Subida siguiente
+    if(cxEnd < W){ ctx.lineTo(cxEnd, yH); }
+  }
+  ctx.stroke();
+  // Etiquetas T_ON / T_OFF sobre el primer ciclo
+  ctx.font = '10px Share Tech Mono';
+  ctx.fillStyle = 'rgba(240,184,48,0.8)';
+  ctx.textAlign = 'center';
+  var c0x = margin + (0 - wavePhase) * cycleW;
+  if(c0x + duty * cycleW > margin && c0x < W){
+    ctx.fillText('T_ON',  c0x + duty * cycleW * 0.5, yH - 7);
+    ctx.fillText('T_OFF', c0x + duty * cycleW + (1 - duty) * cycleW * 0.5, yL + 14);
+  }
+}
+
+function drawMotor(duty){
+  var W = mCanvas.width, H = mCanvas.height;
+  var cx = W/2, cy = H/2, r = 36;
+  mCtx.clearRect(0,0,W,H);
+  mCtx.beginPath();
+  mCtx.arc(cx,cy,r,0,Math.PI*2);
+  mCtx.fillStyle = '#050e08';
+  mCtx.strokeStyle = duty > 5 ? '#1aaa3a' : '#1e3d22';
+  mCtx.lineWidth = 2;
+  mCtx.fill(); mCtx.stroke();
+  mCtx.save();
+  mCtx.translate(cx,cy);
+  mCtx.rotate(motorAngle);
+  mCtx.strokeStyle = duty > 5 ? '#f0b830' : '#2a2010';
+  mCtx.lineWidth = 2.5;
+  mCtx.lineCap = 'round';
+  mCtx.beginPath(); mCtx.moveTo(-(r-8),0); mCtx.lineTo(r-8,0); mCtx.stroke();
+  mCtx.beginPath(); mCtx.moveTo(0,-(r-8)); mCtx.lineTo(0,r-8); mCtx.stroke();
+  [0,90,180,270].forEach(function(deg){
+    var rad = deg * Math.PI / 180;
+    mCtx.beginPath();
+    mCtx.arc(Math.cos(rad)*(r-8), Math.sin(rad)*(r-8), 4, 0, Math.PI*2);
+    mCtx.fillStyle = duty > 5 ? '#f0b830' : '#2a2010';
+    mCtx.fill();
+  });
+  mCtx.restore();
+  mCtx.font = 'bold 13px monospace';
+  mCtx.fillStyle = duty > 5 ? '#1aaa3a' : '#1e3d22';
+  mCtx.textAlign = 'center';
+  mCtx.textBaseline = 'middle';
+  mCtx.fillText('M', cx, cy);
+  mCtx.textBaseline = 'alphabetic';
+}
+
+function loop(){
+  var p = getParams();
+  wavePhase += 0.012;
+  if(wavePhase >= 1) wavePhase -= 1;
+  motorAngle += (p.duty / 100) * 0.09;
+  var lbl = p.duty < 5 ? 'PARADO' : p.duty < 30 ? 'LENTO' : p.duty < 70 ? 'MEDIO' : 'RÁPIDO';
+  document.getElementById('motorLabel').textContent = lbl;
+  drawOsc(p);
+  drawMotor(p.duty);
+  requestAnimationFrame(loop);
+}
+
+// Eventos de sliders
+['r3','r4','c1'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', function(){
+    updatePanel(getParams());
+  });
+});
+
+updatePanel(getParams());
+loop();
+</script>
+</body>
+</html>

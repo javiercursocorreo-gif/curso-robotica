@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.7 Simulación - Puente H L293D</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09100d;--panel:#0d1a10;--panel2:#111f14;--amber:#f0b830;--amber2:#c8950a;--green:#1aaa3a;--green2:#0d7a25;--red:#cc2222;--dim:#3a5c3e;--text:#c8e8c2;--textdim:#5a8060;--border:#1e3d22;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:24px 0 16px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.htag{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Orbitron',monospace;font-size:16px;color:var(--amber);letter-spacing:2px;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.sim-wrap{background:var(--panel);border:1px solid var(--border);padding:16px;margin-bottom:14px;}
+canvas{display:block;margin:0 auto;max-width:100%;}
+.state-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:500px){.state-btns{grid-template-columns:1fr;}}
+.btn-state{padding:14px;border:2px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:13px;cursor:pointer;transition:all .15s;text-align:left;background:var(--panel2);}
+.btn-state:hover{border-color:var(--amber);}
+.btn-state.act{border-color:var(--amber);background:rgba(240,184,48,0.1);}
+.btn-state .bs-title{font-family:'Orbitron',monospace;font-size:12px;color:var(--amber);margin-bottom:4px;}
+.btn-state .bs-desc{font-size:11px;color:var(--textdim);}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;}
+.ib{background:var(--panel2);border:1px solid var(--border);padding:10px;text-align:center;}
+.il{font-size:9px;color:var(--textdim);letter-spacing:2px;margin-bottom:3px;}
+.iv{font-family:'Orbitron',monospace;font-size:13px;}
+.iv.on{color:var(--green);}.iv.off{color:var(--textdim);}.iv.warn{color:var(--amber);}
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--amber);padding:14px 16px;font-size:13px;line-height:1.7;color:var(--textdim);}
+.explainer strong{color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.7</div>
+    <h1>Puente H L293D — Las 4 posiciones</h1>
+    <p class="hsub">Selecciona el estado de IN1 e IN2 para ver el sentido de giro del motor</p>
+  </header>
+  <div class="sim-wrap"><canvas id="c" width="680" height="300"></canvas></div>
+  <div class="state-btns">
+    <button class="btn-state act" onclick="setState(0)"><div class="bs-title">IN1=HIGH · IN2=LOW</div><div class="bs-desc">Sentido horario</div></button>
+    <button class="btn-state" onclick="setState(1)"><div class="bs-title">IN1=LOW · IN2=HIGH</div><div class="bs-desc">Sentido antihorario</div></button>
+    <button class="btn-state" onclick="setState(2)"><div class="bs-title">IN1=LOW · IN2=LOW</div><div class="bs-desc">Motor parado (libre)</div></button>
+    <button class="btn-state" onclick="setState(3)"><div class="bs-title">IN1=HIGH · IN2=HIGH</div><div class="bs-desc">Canal bloqueado</div></button>
+  </div>
+  <div class="info-grid">
+    <div class="ib"><div class="il">IN1</div><div class="iv" id="iv-in1">HIGH</div></div>
+    <div class="ib"><div class="il">IN2</div><div class="iv" id="iv-in2">LOW</div></div>
+    <div class="ib"><div class="il">SENTIDO</div><div class="iv" id="iv-dir">HORARIO</div></div>
+    <div class="ib"><div class="il">CORRIENTE</div><div class="iv" id="iv-curr">→</div></div>
+  </div>
+  <div class="explainer" id="expl"></div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),W=680,H=300;
+var currentState=0,motorAngle=0,motorSpeed=0,rafId=null;
+var STATES=[
+  {in1:1,in2:0,dir:1,label:'HORARIO',color:'#1aaa3a',curr:'OUT1→motor→OUT2',expl:'IN1=HIGH activa el transistor superior izquierdo y el inferior derecho del puente H. La corriente fluye de OUT1 al motor y sale por OUT2. El motor gira en sentido horario.'},
+  {in1:0,in2:1,dir:-1,label:'ANTIHORARIO',color:'#f0b830',curr:'OUT2→motor→OUT1',expl:'IN2=HIGH activa el transistor superior derecho y el inferior izquierdo. La corriente fluye de OUT2 al motor y sale por OUT1: polaridad invertida. El motor gira en sentido antihorario.'},
+  {in1:0,in2:0,dir:0,label:'PARADO',color:'#3a5c3e',curr:'Sin corriente',expl:'Con ambas entradas en LOW ningún transistor conduce. El motor queda en reposo libre (puede girar por inercia, pero no recibe corriente). No hay cortocircuito.'},
+  {in1:1,in2:1,dir:0,label:'BLOQUEADO',color:'#cc2222',curr:'INVÁLIDO',expl:'Con ambas entradas en HIGH el L293D detecta una combinación inválida y bloquea las salidas para evitar el cortocircuito interno que destruiría los transistores del puente. Esta combinación NUNCA debe usarse en un sistema real.'},
+];
+
+function setState(s){
+  currentState=s;
+  document.querySelectorAll('.btn-state').forEach(function(b,i){b.classList.toggle('act',i===s);});
+  var S=STATES[s];
+  var cls=s===0?'on':s===1?'warn':s===3?'off danger':'off';
+  function setIv(id,txt,c){var e=document.getElementById(id);e.textContent=txt;e.className='iv '+c;}
+  setIv('iv-in1',S.in1?'HIGH':'LOW',S.in1?'on':'off');
+  setIv('iv-in2',S.in2?'HIGH':'LOW',S.in2?'on':'off');
+  setIv('iv-dir',S.label,s===0?'on':s===1?'warn':s===3?'off':'off');
+  setIv('iv-curr',S.curr,s===3?'off':'warn');
+  document.getElementById('expl').innerHTML='<strong>Estado '+s+': '+S.label+'</strong><br>'+S.expl;
+}
+
+function drawH(){
+  var S=STATES[currentState];
+  var c=S.color,active=S.dir!==0&&currentState<2;
+  // Background grid
+  ctx.strokeStyle='rgba(30,61,34,0.3)';ctx.lineWidth=0.5;
+  for(var x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(var y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // L293D chip
+  ctx.fillStyle='#0d1a10';ctx.strokeStyle='#3a5c3e';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(200,80,280,140,6);ctx.fill();ctx.stroke();
+  ctx.font='bold 12px Orbitron,monospace';ctx.textAlign='center';ctx.fillStyle='#5a8060';
+  ctx.fillText('L293D',340,148);ctx.font='9px Share Tech Mono';ctx.fillText('Puente H',340,163);
+
+  // 4 transistor symbols inside the H
+  var tPos=[[230,100],[430,100],[230,180],[430,180]];
+  var tActive=currentState===0?[1,0,0,1]:currentState===1?[0,1,1,0]:[0,0,0,0];
+  if(currentState===3)tActive=[1,1,0,0];
+  tPos.forEach(function(tp,i){
+    ctx.beginPath();ctx.arc(tp[0],tp[1],14,0,Math.PI*2);
+    ctx.fillStyle=tActive[i]?'rgba(26,170,58,0.2)':'rgba(30,61,34,0.2)';
+    ctx.strokeStyle=tActive[i]?'#1aaa3a':'#3a5c3e';ctx.lineWidth=1.2;
+    ctx.fill();ctx.stroke();
+    ctx.font='8px Share Tech Mono';ctx.textAlign='center';ctx.fillStyle=tActive[i]?'#1aaa3a':'#5a8060';
+    ctx.fillText('Q'+(i+1),tp[0],tp[1]+3);
+  });
+
+  // Motor
+  var mx=580,my=150,mr=36;
+  ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);
+  ctx.fillStyle='#09100d';ctx.strokeStyle=active?c:'#3a5c3e';ctx.lineWidth=2;ctx.fill();ctx.stroke();
+  ctx.save();ctx.translate(mx,my);ctx.rotate(motorAngle);
+  ctx.strokeStyle=active?'#f0b830':'rgba(240,184,48,0.1)';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(-mr+8,0);ctx.lineTo(mr-8,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-mr+8);ctx.lineTo(0,mr-8);ctx.stroke();
+  ctx.restore();
+  ctx.font='bold 11px Orbitron,monospace';ctx.fillStyle=active?c:'#3a5c3e';ctx.textAlign='center';
+  ctx.fillText('M',mx,my+4);
+
+  // Current arrows
+  if(currentState===0){
+    drawArrow(480,150,545,150,'#1aaa3a');
+    ctx.font='9px Share Tech Mono';ctx.fillStyle='#1aaa3a';ctx.textAlign='center';ctx.fillText('→ corriente',512,144);
+  } else if(currentState===1){
+    drawArrow(545,150,480,150,'#f0b830');
+    ctx.font='9px Share Tech Mono';ctx.fillStyle='#f0b830';ctx.textAlign='center';ctx.fillText('← invertida',512,144);
+  } else if(currentState===3){
+    ctx.font='bold 11px Share Tech Mono';ctx.fillStyle='#cc2222';ctx.textAlign='center';ctx.fillText('⚠ BLOQUEADO',480,150);
+  }
+
+  // Pila
+  ctx.fillStyle='#0d1a10';ctx.strokeStyle='#3a5c3e';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.roundRect(30,100,44,100,4);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#c8e8c2';ctx.font='bold 13px Share Tech Mono';ctx.textAlign='center';
+  ctx.fillText('+',52,120);ctx.fillText('−',52,190);
+  ctx.font='10px Share Tech Mono';ctx.fillStyle='#5a8060';ctx.fillText('9V',52,155);
+
+  // Arduino
+  ctx.fillStyle='#0d1a10';ctx.strokeStyle='#1aaa3a';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.roundRect(30,20,120,60,4);ctx.fill();ctx.stroke();
+  ctx.font='9px Share Tech Mono';ctx.fillStyle='#1aaa3a';ctx.textAlign='center';
+  ctx.fillText('ARDUINO',90,44);
+  ctx.fillText('IN1='+STATES[currentState].in1+' IN2='+STATES[currentState].in2,90,58);
+}
+
+function drawArrow(x1,y1,x2,y2,color){
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  var angle=Math.atan2(y2-y1,x2-x1);
+  ctx.save();ctx.translate(x2,y2);ctx.rotate(angle);
+  ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-10,-5);ctx.lineTo(-10,5);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  var S=STATES[currentState];
+  if(S.dir===1)motorSpeed=Math.min(motorSpeed+0.01,0.09);
+  else if(S.dir===-1)motorSpeed=Math.max(motorSpeed-0.01,-0.09);
+  else{if(motorSpeed>0.002)motorSpeed-=0.003;else if(motorSpeed<-0.002)motorSpeed+=0.003;else motorSpeed=0;}
+  motorAngle+=motorSpeed;
+  drawH();
+  rafId=requestAnimationFrame(loop);
+}
+setState(0);loop();
+</script>
+</body>
+</html>

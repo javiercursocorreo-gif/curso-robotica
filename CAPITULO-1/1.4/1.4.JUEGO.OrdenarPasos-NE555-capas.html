@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.4 Juego - NE555: Ordena las capas de montaje</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Special+Elite&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09100d;--panel:#0d1a10;--panel2:#111f14;--amber:#f0b830;--amber2:#c8950a;--green:#1aaa3a;--green2:#0d7a25;--red:#cc2222;--dim:#3a5c3e;--text:#c8e8c2;--textdim:#5a8060;--border:#1e3d22;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Orbitron',monospace;font-size:17px;color:var(--amber);letter-spacing:2px;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--amber);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--amber);}
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);padding:12px 16px;margin-bottom:24px;}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sl{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.sv{font-family:'Orbitron',monospace;font-size:22px;}
+.sv.pts{color:var(--amber);}.sv.ok{color:var(--green);}.sv.fail{color:var(--red);}
+.pw{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.pl{font-size:10px;color:var(--textdim);}
+.pb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pf{height:100%;background:var(--amber);transition:width .4s;}
+.round-hdr{font-family:'Orbitron',monospace;font-size:11px;color:var(--amber);letter-spacing:3px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.q-label{font-size:14px;color:var(--amber);margin-bottom:16px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--amber);padding:12px 16px;line-height:1.5;}
+.steps-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.step-item{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1.5px solid var(--border);padding:12px 16px;cursor:grab;transition:border-color .15s;user-select:none;touch-action:none;}
+.step-item:hover:not(.locked){border-color:var(--amber);}
+.step-item.dragging{opacity:0.4;}
+.step-item.correct{border-color:var(--green);background:#071a0a;}
+.step-item.wrong{border-color:var(--red);background:#1a0505;}
+.step-item.locked{cursor:default;}
+.step-num{font-family:'Orbitron',monospace;font-size:18px;color:var(--amber);min-width:28px;text-align:center;}
+.step-text{font-size:13px;line-height:1.5;}
+.drag-handle{color:var(--dim);font-size:16px;margin-left:auto;padding-left:12px;}
+.fb-box{padding:14px 18px;border-left:4px solid;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+.fb-box.show{display:block;}
+.fb-box.ok{border-color:var(--green);background:#071a0a;color:#7eff9a;}
+.fb-box.ko{border-color:var(--red);background:#1a0505;color:#ff8888;}
+.fb-title{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;margin-bottom:5px;}
+.btn-check{width:100%;background:var(--amber2);border:1px solid var(--amber);color:#000;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px;cursor:pointer;transition:background .2s;margin-bottom:10px;}
+.btn-check:hover{background:var(--amber);}
+.btn-next{display:none;width:100%;background:var(--green2);border:1px solid var(--green);color:#fff;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px;cursor:pointer;}
+.btn-next:hover{background:var(--green);}
+.btn-next.show{display:block;}
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Orbitron',monospace;font-size:56px;color:var(--amber);margin-bottom:8px;}
+.res-title{font-family:'Special Elite',serif;font-size:22px;color:var(--green);margin-bottom:12px;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.rs{text-align:center;}.rsv{font-family:'Orbitron',monospace;font-size:28px;}
+.g{color:var(--green);}.r{color:var(--red);}.a{color:var(--amber);}
+.rsl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--amber2);border:1px solid var(--amber);color:#000;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px 32px;cursor:pointer;}
+.btn-restart:hover{background:var(--amber);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Control automático ON/OFF — NE555</h1>
+    <p class="hsub">Clase 1.4 — Ordena las capas de montaje del circuito</p>
+  </header>
+  <div class="instr"><span>Instrucciones:</span> Arrastra los pasos para ponerlos en el orden correcto por capas. Pulsa <span>VERIFICAR</span> cuando termines. <span>+100 pts</span> orden correcto · <span>−10 pts</span> por paso mal colocado.</div>
+  <div class="score-bar">
+    <div class="si"><span class="sl">PUNTOS</span><span class="sv pts" id="pts">0</span></div>
+    <div class="si"><span class="sl">ACIERTOS</span><span class="sv ok" id="ok">0</span></div>
+    <div class="si"><span class="sl">FALLOS</span><span class="sv fail" id="fail">0</span></div>
+    <div class="pw"><div class="pl" id="pl">Ronda 1 de 3</div><div class="pb"><div class="pf" id="pf" style="width:0%"></div></div></div>
+  </div>
+  <div id="gameArea">
+    <div class="round-hdr" id="rhdr">RONDA 01 / 03</div>
+    <div class="q-label" id="qlabel"></div>
+    <div class="steps-list" id="stepsList"></div>
+    <div class="fb-box" id="fb"><div class="fb-title" id="fbt"></div><div id="fbm"></div></div>
+    <button class="btn-check" onclick="checkOrder()">VERIFICAR ORDEN</button>
+    <button class="btn-next" id="btnNext" onclick="nextRound()">SIGUIENTE RONDA ›</button>
+  </div>
+  <div class="results-card" id="rc">
+    <div class="res-pct" id="rpct"></div>
+    <div class="res-title" id="rtitle"></div>
+    <div class="res-msg" id="rmsg"></div>
+    <div class="res-stats">
+      <div class="rs"><div class="rsv a" id="rpts"></div><div class="rsl">PUNTOS</div></div>
+      <div class="rs"><div class="rsv g" id="rok"></div><div class="rsl">ACIERTOS</div></div>
+      <div class="rs"><div class="rsv r" id="rfail"></div><div class="rsl">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+<script>
+var ROUNDS=[
+  {q:"RONDA 1: Ordena las CAPAS de montaje del circuito NE555 (clase 1.4) en el orden correcto",
+   steps:["CAPA 1 — ALIMENTACIÓN: Conectar la pila 9V a los carriles positivo (+) y negativo (−) de la protoboard","CAPA 2 — CONTROL: Colocar el NE555, conectar VCC (pin 8), GND (pin 1), RESET (pin 4) y C2 en pin 5","CAPA 2 — CONTROL: Completar la red de temporización: R3, R4, C1 y unir pines 2 y 6 al nodo T","CAPA 2 — CONTROL: Conectar la salida del NE555 (pin 3) a R2 y R2 a la Base del transistor","CAPA 3 — POTENCIA: Conectar transistor NPN BJT (Emisor a GND, Colector al motor, motor+ al carril +)","CAPA 4 — PROTECCIÓN: Añadir el diodo flyback en paralelo con el motor (Cátodo al +, Ánodo al Colector)"],
+   fb_ok:"¡Perfecto! Has seguido el orden correcto de capas. Siempre: alimentación primero, luego control, luego potencia, luego protección.",
+   fb_ko:"Recuerda el orden de capas: 1-Alimentación, 2-Control (NE555), 3-Potencia (transistor+motor), 4-Protección (diodo)."},
+  {q:"RONDA 2: Ordena los pines del NE555 según el orden en que se conectan al construir el circuito",
+   steps:["Pin 1 (GND) → carril negativo (−). Es la referencia del circuito, siempre primero","Pin 8 (VCC) → carril positivo (+). Alimentación del chip","Pin 4 (RESET) → carril positivo (+). Mantenerlo en HIGH para que el NE555 funcione","Pin 5 (CONTROL) → C2 (10 nF) → carril negativo. Filtro de ruido","Pines 2 y 6 (TRIGGER y THRESHOLD) → Nodo T. Junto con R3, R4 y C1 forman el oscilador","Pin 3 (OUTPUT) → R2 → Base del transistor. La señal sale por aquí"],
+   fb_ok:"Excelente. Ese es el orden lógico de conexión del NE555: GND y VCC primero, luego el control, luego la red de temporización, y finalmente la salida.",
+   fb_ko:"Siempre primero GND y VCC (referencias), luego los pines de control, luego la red de temporización, y finalmente la salida al transistor."},
+  {q:"RONDA 3: Ordena las acciones de verificación de la clase 1.4 en el orden correcto",
+   steps:["Verificar que la pila está correctamente conectada a los carriles antes de añadir el NE555","Iniciar la simulación solo con el NE555 montado y comprobar que el pin 3 oscila","Detener la simulación y conectar el transistor, el motor y el diodo","Iniciar la simulación de nuevo y comprobar que el motor oscila automáticamente","Modificar el valor de R3 o R4 y comprobar que el ciclo cambia","Restaurar los valores originales y dejar el circuito listo para la clase 1.5"],
+   fb_ok:"Perfecto. Verificar por capas es la mejor estrategia: primero el oscilador solo, luego la potencia completa.",
+   fb_ko:"Recuerda: primero verificar el oscilador NE555 por separado, luego añadir la etapa de potencia y verificar el conjunto."}
+];
+var state={round:0,pts:0,ok:0,fail:0};
+var currentOrder=[];
+var dragIdx=null,touchClone=null;
+function shuffle(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function init(){state={round:0,pts:0,ok:0,fail:0};document.getElementById('rc').classList.remove('show');document.getElementById('gameArea').style.display='';renderRound();}
+function renderRound(){
+  var R=ROUNDS[state.round];
+  document.getElementById('rhdr').textContent='RONDA '+String(state.round+1).padStart(2,'0')+' / 03';
+  document.getElementById('qlabel').textContent=R.q;
+  document.getElementById('pl').textContent='Ronda '+(state.round+1)+' de 3';
+  document.getElementById('pf').style.width=((state.round/3)*100)+'%';
+  currentOrder=shuffle(R.steps.map(function(_,i){return i;}));
+  var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');
+  document.getElementById('btnNext').classList.remove('show');
+  renderSteps(false);updateScore();
+}
+function renderSteps(locked){
+  var R=ROUNDS[state.round];
+  var list=document.getElementById('stepsList');list.innerHTML='';
+  currentOrder.forEach(function(si,pos){
+    var div=document.createElement('div');
+    div.className='step-item'+(locked?' locked':'');
+    div.setAttribute('data-pos',pos);
+    if(locked)div.classList.add(si===pos?'correct':'wrong');
+    div.innerHTML='<span class="step-num">'+(pos+1)+'</span><span class="step-text">'+R.steps[si]+'</span>'+(locked?'':'<span class="drag-handle">⠿</span>');
+    if(!locked){
+      div.setAttribute('draggable','true');
+      div.addEventListener('dragstart',function(){dragIdx=pos;div.classList.add('dragging');});
+      div.addEventListener('dragend',function(){div.classList.remove('dragging');dragIdx=null;});
+      div.addEventListener('dragover',function(e){e.preventDefault();});
+      div.addEventListener('drop',function(e){e.preventDefault();if(dragIdx!==null&&dragIdx!==pos)swapItems(dragIdx,pos);});
+      div.addEventListener('touchstart',function(e){
+        e.preventDefault();dragIdx=pos;div.style.opacity='0.4';
+        var t=e.touches[0];touchClone=document.createElement('div');
+        touchClone.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:#111f14;border:1.5px solid #f0b830;color:#c8e8c2;font-family:Share Tech Mono,monospace;font-size:13px;padding:10px 16px;max-width:300px;';
+        touchClone.textContent=R.steps[si].substring(0,60)+'...';
+        touchClone.style.left=(t.clientX-100)+'px';touchClone.style.top=(t.clientY-25)+'px';
+        document.body.appendChild(touchClone);
+      },{passive:false});
+      div.addEventListener('touchmove',function(e){
+        e.preventDefault();if(!touchClone)return;
+        var t=e.touches[0];touchClone.style.left=(t.clientX-100)+'px';touchClone.style.top=(t.clientY-25)+'px';
+      },{passive:false});
+      div.addEventListener('touchend',function(e){
+        if(touchClone){touchClone.remove();touchClone=null;}div.style.opacity='';
+        var t=e.changedTouches[0];
+        var els=document.elementsFromPoint(t.clientX,t.clientY);
+        for(var i=0;i<els.length;i++){var s=els[i].closest&&els[i].closest('.step-item[data-pos]');if(s&&s!==div){swapItems(dragIdx,parseInt(s.getAttribute('data-pos')));break;}}
+        dragIdx=null;
+      });
+    }
+    list.appendChild(div);
+  });
+}
+function swapItems(a,b){var t=currentOrder[a];currentOrder[a]=currentOrder[b];currentOrder[b]=t;renderSteps(false);}
+function checkOrder(){
+  var correct=0;
+  currentOrder.forEach(function(si,pos){if(si===pos)correct++;else state.fail++;});
+  state.ok+=correct;
+  var earned=correct*Math.floor(100/ROUNDS[state.round].steps.length);
+  state.pts=Math.max(0,state.pts+earned-(ROUNDS[state.round].steps.length-correct)*10);
+  var R=ROUNDS[state.round];var allOk=correct===R.steps.length;
+  renderSteps(true);document.querySelector('.btn-check').style.display='none';
+  showFb(allOk,allOk?'✓ ORDEN CORRECTO':'✗ REVISA EL ORDEN',allOk?R.fb_ok:R.fb_ko+' Pasos correctos: '+correct+'/'+R.steps.length+'.');
+  updateScore();setTimeout(function(){document.getElementById('btnNext').classList.add('show');},1800);
+}
+function showFb(ok,t,m){var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');document.getElementById('fbt').textContent=t;document.getElementById('fbm').textContent=m;fb.classList.add('show',ok?'ok':'ko');}
+function updateScore(){document.getElementById('pts').textContent=state.pts;document.getElementById('ok').textContent=state.ok;document.getElementById('fail').textContent=state.fail;}
+function nextRound(){state.round++;document.getElementById('btnNext').classList.remove('show');if(state.round>=3){showResults();return;}document.querySelector('.btn-check').style.display='';renderRound();}
+function showResults(){
+  document.getElementById('gameArea').style.display='none';document.getElementById('rc').classList.add('show');
+  var maxPts=300;var pct=Math.min(100,Math.max(0,Math.round(state.pts/maxPts*100)));
+  document.getElementById('rpct').textContent=pct+'%';document.getElementById('rpts').textContent=state.pts;
+  document.getElementById('rok').textContent=state.ok;document.getElementById('rfail').textContent=state.fail;
+  var t,m;
+  if(pct>=85){t='🏆 Resultado sobresaliente';m='Dominas el montaje por capas del circuito NE555. Estás listo para la clase 1.5 con Arduino.';}
+  else if(pct>=65){t='✅ Resultado superado';m='Buen trabajo. Repasa el orden de capas y los pines del NE555 antes de continuar.';}
+  else if(pct>=45){t='📖 Buen intento';m='Repasa la teoría de la clase 1.4, especialmente la función de cada pin del NE555.';}
+  else{t='💪 ¡Ánimo!';m='Repasa la teoría con calma y vuelve a intentarlo.';}
+  document.getElementById('rtitle').textContent=t;document.getElementById('rmsg').textContent=m;
+  document.getElementById('pf').style.width='100%';document.getElementById('pl').textContent='¡Completado!';
+}
+function restart(){init();}
+init();
+</script>
+</body>
+</html>

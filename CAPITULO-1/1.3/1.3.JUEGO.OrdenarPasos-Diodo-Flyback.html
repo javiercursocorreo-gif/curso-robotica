@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.3 Juego - Diodo Flyback: Ordena los pasos</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080f;--panel:#0d1117;--panel2:#111520;--p1:#3b82f6;--p2:#f59e0b;--p3:#10b981;--p4:#ef4444;--text:#c8d8f0;--textdim:#445566;--border:#1a2535;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--p1);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:18px;color:var(--p2);font-weight:700;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--p2);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--p2);}
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);padding:12px 16px;margin-bottom:24px;}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sl{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.sv{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;}
+.sv.pts{color:var(--p2);}
+.sv.ok{color:var(--p3);}
+.sv.fail{color:var(--p4);}
+.pw{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.pl{font-size:10px;color:var(--textdim);}
+.pb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pf{height:100%;background:var(--p1);transition:width .4s;}
+.round-hdr{font-family:'Syne',sans-serif;font-size:11px;color:var(--p1);letter-spacing:3px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.q-label{font-size:14px;color:var(--p2);margin-bottom:16px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--p2);padding:12px 16px;line-height:1.5;}
+.steps-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.step-item{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1.5px solid var(--border);padding:12px 16px;cursor:grab;transition:border-color .15s,background .15s;user-select:none;touch-action:none;}
+.step-item:hover:not(.locked){border-color:var(--p1);background:#0d1520;}
+.step-item.dragging{opacity:0.4;}
+.step-item.correct{border-color:var(--p3);background:#021a0c;}
+.step-item.wrong{border-color:var(--p4);background:#1a0508;}
+.step-item.locked{cursor:default;}
+.step-num{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--p1);min-width:28px;text-align:center;}
+.step-text{font-size:13px;line-height:1.5;color:var(--text);}
+.drag-handle{color:var(--textdim);font-size:16px;margin-left:auto;padding-left:12px;}
+.fb-box{padding:14px 18px;border-left:4px solid;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+.fb-box.show{display:block;}
+.fb-box.ok{border-color:var(--p3);background:#021a0c;color:#80ffbb;}
+.fb-box.ko{border-color:var(--p4);background:#1a0305;color:#ffaaaa;}
+.fb-title{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:2px;font-weight:700;margin-bottom:5px;}
+.btn-check{width:100%;background:var(--p1);border:1px solid var(--p1);color:#fff;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px;cursor:pointer;transition:background .2s;margin-bottom:10px;opacity:.9;}
+.btn-check:hover{opacity:1;}
+.btn-next{display:none;width:100%;background:#0d5c30;border:1px solid var(--p3);color:#fff;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px;cursor:pointer;transition:background .2s;}
+.btn-next:hover{background:var(--p3);color:#000;}
+.btn-next.show{display:block;}
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Syne',sans-serif;font-size:56px;font-weight:700;color:var(--p2);margin-bottom:8px;}
+.res-title{font-family:'Syne',sans-serif;font-size:22px;color:var(--p3);margin-bottom:12px;font-weight:700;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.rs{text-align:center;}
+.rsv{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;}
+.g{color:var(--p3);}.r{color:var(--p4);}.a{color:var(--p2);}
+.rsl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--p1);border:none;color:#fff;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:2px;font-weight:700;padding:14px 32px;cursor:pointer;transition:background .2s;}
+.btn-restart:hover{background:#2563eb;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Protección del motor: diodo flyback</h1>
+    <p class="hsub">Clase 1.3 — Ordena los pasos correctamente</p>
+  </header>
+  <div class="instr"><span>Instrucciones:</span> Arrastra los pasos para ponerlos en el orden correcto. Pulsa <span>VERIFICAR</span> cuando termines. <span>+100 pts</span> orden correcto · <span>−10 pts</span> por paso mal colocado · mínimo 0 pts.</div>
+  <div class="score-bar">
+    <div class="si"><span class="sl">PUNTOS</span><span class="sv pts" id="pts">0</span></div>
+    <div class="si"><span class="sl">ACIERTOS</span><span class="sv ok" id="ok">0</span></div>
+    <div class="si"><span class="sl">FALLOS</span><span class="sv fail" id="fail">0</span></div>
+    <div class="pw"><div class="pl" id="pl">Ronda 1 de 3</div><div class="pb"><div class="pf" id="pf" style="width:0%"></div></div></div>
+  </div>
+  <div id="gameArea">
+    <div class="round-hdr" id="rhdr">RONDA 01 / 03</div>
+    <div class="q-label" id="qlabel"></div>
+    <div class="steps-list" id="stepsList"></div>
+    <div class="fb-box" id="fb"><div class="fb-title" id="fbt"></div><div id="fbm"></div></div>
+    <button class="btn-check" onclick="checkOrder()">VERIFICAR ORDEN</button>
+    <button class="btn-next" id="btnNext" onclick="nextRound()">SIGUIENTE RONDA ›</button>
+  </div>
+  <div class="results-card" id="rc">
+    <div class="res-pct" id="rpct"></div>
+    <div class="res-title" id="rtitle"></div>
+    <div class="res-msg" id="rmsg"></div>
+    <div class="res-stats">
+      <div class="rs"><div class="rsv a" id="rpts"></div><div class="rsl">PUNTOS</div></div>
+      <div class="rs"><div class="rsv g" id="rok"></div><div class="rsl">ACIERTOS</div></div>
+      <div class="rs"><div class="rsv r" id="rfail"></div><div class="rsl">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+<script>
+var ROUNDS=[
+  {q:"RONDA 1: Ordena los pasos para añadir el diodo flyback al circuito de la clase 1.3",
+   steps:["Verificar que el circuito base de la clase 1.2 funciona correctamente (motor gira al pulsar)","Identificar el terminal positivo del motor y el Colector del transistor en la protoboard","Colocar el diodo con el Cátodo (banda) hacia el terminal positivo del motor","Conectar el Ánodo del diodo al terminal negativo del motor / Colector del transistor","Iniciar la simulación y comprobar que el comportamiento es idéntico al de la clase 1.2","Reflexionar: en Tinkercad no hay diferencia visible, pero en un sistema real el diodo protege al transistor"],
+   fb_ok:"Perfecto. Has seguido el orden correcto. La clave es verificar primero el circuito base antes de añadir la protección, y comprobar después que el comportamiento no ha cambiado.",
+   fb_ko:"Revisa el orden. Siempre hay que verificar el circuito base antes de añadir componentes nuevos."},
+  {q:"RONDA 2: Ordena los pasos del proceso físico que ocurre cuando se apaga el motor",
+   steps:["El pulsador se abre: se corta la corriente que llega a la Base del transistor","El transistor se corta: el camino entre Colector y Emisor queda bloqueado","El campo magnético de las bobinas del motor colapsa instantáneamente","Se induce un pico de tensión inversa de decenas o cientos de voltios","El diodo flyback se polariza en directa y conduce el pico en un bucle cerrado","La energía del pico se disipa de forma controlada sin alcanzar el transistor"],
+   fb_ok:"Excelente. Has descrito correctamente la secuencia del efecto inductivo y la protección del diodo flyback.",
+   fb_ko:"Repasa la secuencia. El pico inductivo aparece cuando se corta la corriente, y el diodo lo intercepta antes de que llegue al transistor."},
+  {q:"RONDA 3: Ordena los criterios para verificar que el diodo flyback está bien colocado",
+   steps:["Identificar el Cátodo del diodo: es el terminal marcado con una banda blanca o gris","Confirmar que el Cátodo está conectado al lado positivo del motor (carril positivo +)","Confirmar que el Ánodo está conectado al lado negativo del motor (Colector del transistor)","Verificar que en funcionamiento normal el diodo NO conduce (polarización inversa)","Comprobar que si se invierte el diodo, se cortocircuitaría la alimentación","Confirmar que el circuito funciona igual con y sin diodo en Tinkercad (el efecto es solo real)"],
+   fb_ok:"Correcto. Estos son exactamente los criterios de verificación que hay que aplicar al añadir el diodo flyback.",
+   fb_ko:"Recuerda: primero identificas los terminales, luego verificas la orientación, y finalmente compruebas el comportamiento."}
+];
+var state={round:0,pts:0,ok:0,fail:0};
+var currentOrder=[];
+var dragIdx=null,touchClone=null;
+function shuffle(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function init(){state={round:0,pts:0,ok:0,fail:0};document.getElementById('rc').classList.remove('show');document.getElementById('gameArea').style.display='';renderRound();}
+function renderRound(){
+  var R=ROUNDS[state.round];
+  document.getElementById('rhdr').textContent='RONDA '+String(state.round+1).padStart(2,'0')+' / 03';
+  document.getElementById('qlabel').textContent=R.q;
+  document.getElementById('pl').textContent='Ronda '+(state.round+1)+' de 3';
+  document.getElementById('pf').style.width=((state.round/3)*100)+'%';
+  currentOrder=shuffle(R.steps.map(function(_,i){return i;}));
+  var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');
+  document.getElementById('btnNext').classList.remove('show');
+  renderSteps(false);
+  updateScore();
+}
+function renderSteps(locked){
+  var R=ROUNDS[state.round];
+  var list=document.getElementById('stepsList');list.innerHTML='';
+  currentOrder.forEach(function(stepIdx,pos){
+    var div=document.createElement('div');
+    div.className='step-item'+(locked?' locked':'');
+    div.setAttribute('data-pos',pos);
+    if(locked){div.classList.add(stepIdx===pos?'correct':'wrong');}
+    div.innerHTML='<span class="step-num">'+(pos+1)+'</span><span class="step-text">'+R.steps[stepIdx]+'</span>'+(locked?'':'<span class="drag-handle">⠿</span>');
+    if(!locked){
+      div.setAttribute('draggable','true');
+      div.addEventListener('dragstart',function(){dragIdx=pos;div.classList.add('dragging');});
+      div.addEventListener('dragend',function(){div.classList.remove('dragging');dragIdx=null;});
+      div.addEventListener('dragover',function(e){e.preventDefault();});
+      div.addEventListener('drop',function(e){e.preventDefault();if(dragIdx!==null&&dragIdx!==pos){swapItems(dragIdx,pos);}});
+      div.addEventListener('touchstart',function(e){
+        e.preventDefault();dragIdx=pos;div.style.opacity='0.4';
+        var t=e.touches[0];touchClone=document.createElement('div');
+        touchClone.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:#111520;border:1.5px solid #3b82f6;color:#c8d8f0;font-family:JetBrains Mono,monospace;font-size:13px;padding:10px 16px;border-radius:4px;max-width:300px;';
+        touchClone.textContent=R.steps[stepIdx].substring(0,60)+'...';
+        touchClone.style.left=(t.clientX-100)+'px';touchClone.style.top=(t.clientY-25)+'px';
+        document.body.appendChild(touchClone);
+      },{passive:false});
+      div.addEventListener('touchmove',function(e){
+        e.preventDefault();if(!touchClone)return;
+        var t=e.touches[0];touchClone.style.left=(t.clientX-100)+'px';touchClone.style.top=(t.clientY-25)+'px';
+      },{passive:false});
+      div.addEventListener('touchend',function(e){
+        if(touchClone){touchClone.remove();touchClone=null;}div.style.opacity='';
+        var t=e.changedTouches[0];
+        var els=document.elementsFromPoint(t.clientX,t.clientY);
+        for(var i=0;i<els.length;i++){
+          var s=els[i].closest&&els[i].closest('.step-item[data-pos]');
+          if(s&&s!==div){swapItems(dragIdx,parseInt(s.getAttribute('data-pos')));break;}
+        }
+        dragIdx=null;
+      });
+    }
+    list.appendChild(div);
+  });
+}
+function swapItems(a,b){var t=currentOrder[a];currentOrder[a]=currentOrder[b];currentOrder[b]=t;renderSteps(false);}
+function checkOrder(){
+  var correct=0;
+  currentOrder.forEach(function(si,pos){if(si===pos)correct++;else state.fail++;});
+  state.ok+=correct;
+  var earned=correct*Math.floor(100/ROUNDS[state.round].steps.length);
+  state.pts=Math.max(0,state.pts+earned-(ROUNDS[state.round].steps.length-correct)*10);
+  var R=ROUNDS[state.round];
+  var allOk=correct===R.steps.length;
+  renderSteps(true);
+  document.querySelector('.btn-check').style.display='none';
+  showFb(allOk,allOk?'✓ ORDEN CORRECTO':'✗ REVISA EL ORDEN',allOk?R.fb_ok:R.fb_ko+' Pasos correctos: '+correct+'/'+R.steps.length+'.');
+  updateScore();
+  setTimeout(function(){document.getElementById('btnNext').classList.add('show');},1800);
+}
+function showFb(ok,t,m){var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');document.getElementById('fbt').textContent=t;document.getElementById('fbm').textContent=m;fb.classList.add('show',ok?'ok':'ko');}
+function updateScore(){document.getElementById('pts').textContent=state.pts;document.getElementById('ok').textContent=state.ok;document.getElementById('fail').textContent=state.fail;}
+function nextRound(){state.round++;document.getElementById('btnNext').classList.remove('show');if(state.round>=3){showResults();return;}document.querySelector('.btn-check').style.display='';renderRound();}
+function showResults(){
+  document.getElementById('gameArea').style.display='none';document.getElementById('rc').classList.add('show');
+  var maxPts=300;var pct=Math.min(100,Math.max(0,Math.round(state.pts/maxPts*100)));
+  document.getElementById('rpct').textContent=pct+'%';document.getElementById('rpts').textContent=state.pts;
+  document.getElementById('rok').textContent=state.ok;document.getElementById('rfail').textContent=state.fail;
+  var t,m;
+  if(pct>=85){t='🏆 Resultado sobresaliente';m='Dominas la secuencia de montaje del diodo flyback y el proceso físico del efecto inductivo.';}
+  else if(pct>=65){t='✅ Resultado superado';m='Buen trabajo. Repasa el orden de los pasos que fallaste antes de la clase 1.4.';}
+  else if(pct>=45){t='📖 Buen intento';m='Repasa la teoría de la clase 1.3 sobre el efecto inductivo y la orientación del diodo.';}
+  else{t='💪 ¡Ánimo!';m='Repasa la teoría con calma y vuelve a intentarlo.';}
+  document.getElementById('rtitle').textContent=t;document.getElementById('rmsg').textContent=m;
+  document.getElementById('pf').style.width='100%';document.getElementById('pl').textContent='¡Completado!';
+}
+function restart(){init();}
+init();
+</script>
+</body>
+</html>

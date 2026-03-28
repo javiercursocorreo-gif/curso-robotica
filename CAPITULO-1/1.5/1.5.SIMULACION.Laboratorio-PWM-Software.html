@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.5 Simulación - Laboratorio PWM Software</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060d14;--panel:#0a1520;--panel2:#0d1c2a;--cyan:#00d4ff;--cyan2:#0099cc;--green:#00e060;--yellow:#ffdd00;--red:#ff3355;--text:#b0d8e8;--textdim:#3a6a80;--border:#0d2d40;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+header{text-align:center;padding:24px 0 16px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.htag{font-family:'Syne',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Syne',sans-serif;font-size:17px;color:var(--cyan);font-weight:700;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:560px){.lab-grid{grid-template-columns:1fr;}}
+.panel-box{background:var(--panel);border:1px solid var(--border);padding:16px;}
+.panel-title{font-family:'Syne',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:3px;margin-bottom:14px;}
+canvas{display:block;margin:0 auto;max-width:100%;}
+.slider-row{margin-bottom:14px;}
+.slider-label{font-size:12px;color:var(--textdim);margin-bottom:6px;display:flex;justify-content:space-between;}
+.slider-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--cyan);}
+input[type=range]{width:100%;accent-color:var(--cyan);}
+.code-box{background:#030810;border:1px solid var(--border);border-left:3px solid var(--cyan);padding:14px;font-size:13px;line-height:1.8;margin-bottom:14px;}
+.code-line{color:var(--textdim);}
+.code-hl{color:var(--cyan);font-weight:bold;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px;}
+.ib{background:var(--panel2);border:1px solid var(--border);padding:10px;text-align:center;}
+.il{font-size:9px;color:var(--textdim);letter-spacing:2px;margin-bottom:3px;}
+.iv{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--cyan);}
+.explainer{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--cyan);padding:14px 16px;font-size:13px;line-height:1.7;color:var(--textdim);}
+.explainer strong{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// SIMULACIÓN — CLASE 1.5</div>
+    <h1>Laboratorio PWM por software — Arduino</h1>
+    <p class="hsub">Mueve el slider para cambiar el duty cycle y observa la señal y la velocidad del motor</p>
+  </header>
+  <div class="lab-grid">
+    <div class="panel-box">
+      <div class="panel-title">OSCILOSCOPIO — PIN 9 (~)</div>
+      <canvas id="osc" width="300" height="150" style="background:#030810;"></canvas>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">MOTOR DC</div>
+      <canvas id="motorC" width="300" height="150" style="background:transparent;"></canvas>
+    </div>
+  </div>
+  <div class="panel-box" style="margin-bottom:14px;">
+    <div class="panel-title">CONTROL — DUTY CYCLE (analogWrite)</div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Valor analogWrite (0–255)</span><span class="slider-val" id="awVal">127</span></div>
+      <input type="range" id="slider" min="0" max="255" value="127" oninput="updateSim()">
+    </div>
+    <div class="slider-label"><span>Duty cycle</span><span class="slider-val" id="dcPct">50%</span></div>
+  </div>
+  <div class="code-box" id="codeBox"></div>
+  <div class="info-grid">
+    <div class="ib"><div class="il">VALOR</div><div class="iv" id="iv-val">127</div></div>
+    <div class="ib"><div class="il">DUTY CYCLE</div><div class="iv" id="iv-dc">50%</div></div>
+    <div class="ib"><div class="il">FRECUENCIA</div><div class="iv" id="iv-freq">~490 Hz</div></div>
+    <div class="ib"><div class="il">VELOCIDAD</div><div class="iv" id="iv-speed">MEDIA</div></div>
+  </div>
+  <div class="explainer" id="expl"></div>
+</div>
+<script>
+var oscCtx=document.getElementById('osc').getContext('2d');
+var mCtx=document.getElementById('motorC').getContext('2d');
+var motorAngle=0,motorSpeed=0,rafId=null,wOff=0;
+
+function updateSim(){
+  var v=parseInt(document.getElementById('slider').value);
+  var dc=Math.round(v/255*100);
+  document.getElementById('awVal').textContent=v;
+  document.getElementById('dcPct').textContent=dc+'%';
+  document.getElementById('iv-val').textContent=v;
+  document.getElementById('iv-dc').textContent=dc+'%';
+  var speedLabel=v<20?'PARADO':v<80?'MUY BAJA':v<140?'BAJA':v<180?'MEDIA':v<220?'ALTA':'MÁXIMA';
+  document.getElementById('iv-speed').textContent=speedLabel;
+  // Code highlight
+  document.getElementById('codeBox').innerHTML=
+    '<span class="code-line">const int pinMotor = 9;</span><br>'+
+    '<br><span class="code-line">void loop() {</span><br>'+
+    '  <span class="code-hl">analogWrite(pinMotor, '+v+');</span>  <span class="code-line">// duty cycle: '+dc+'%</span><br>'+
+    '<span class="code-line">}</span>';
+  // Explainer
+  var expl='<strong>analogWrite(9, '+v+')</strong> genera una señal PWM con duty cycle del <strong>'+dc+'%</strong>. ';
+  if(v===0)expl+='Con valor 0 el transistor nunca conduce: el motor no recibe corriente y permanece parado.';
+  else if(v===255)expl+='Con valor 255 el transistor conduce siempre: el motor recibe corriente continua y gira a máxima velocidad.';
+  else expl+='El transistor conduce el '+dc+'% del tiempo por ciclo. El motor recibe una tensión media de '+Math.round(v/255*9*10)/10+' V aproximadamente.';
+  document.getElementById('expl').innerHTML=expl;
+}
+
+function drawOsc(){
+  var W=300,H=150,dc=parseInt(document.getElementById('slider').value)/255;
+  oscCtx.fillStyle='#030810';oscCtx.fillRect(0,0,W,H);
+  oscCtx.strokeStyle='rgba(0,212,255,0.12)';oscCtx.lineWidth=0.5;
+  for(var x=0;x<W;x+=30){oscCtx.beginPath();oscCtx.moveTo(x,0);oscCtx.lineTo(x,H);oscCtx.stroke();}
+  for(var y=0;y<H;y+=25){oscCtx.beginPath();oscCtx.moveTo(0,y);oscCtx.lineTo(W,y);oscCtx.stroke();}
+  // Wave — 4 cycles
+  var cycleW=W/4;oscCtx.strokeStyle='#00d4ff';oscCtx.lineWidth=2;oscCtx.beginPath();
+  var yH=30,yL=H-30;
+  for(var i=0;i<4;i++){
+    var x0=i*cycleW,onW=dc*cycleW,offW=(1-dc)*cycleW;
+    if(i===0){oscCtx.moveTo(0,yL);oscCtx.lineTo(x0,yL);}
+    oscCtx.lineTo(x0,yH);oscCtx.lineTo(x0+onW,yH);
+    oscCtx.lineTo(x0+onW,yL);oscCtx.lineTo(x0+cycleW,yL);
+  }
+  oscCtx.stroke();
+  oscCtx.font='9px Share Tech Mono';oscCtx.fillStyle='#3a6a80';oscCtx.textAlign='left';
+  oscCtx.fillText('~490 Hz · Pin 9',6,14);
+}
+
+function drawMotor(){
+  var W=300,H=150,cx=W/2,cy=H/2,r=45;
+  mCtx.clearRect(0,0,W,H);
+  mCtx.beginPath();mCtx.arc(cx,cy,r,0,Math.PI*2);
+  mCtx.fillStyle='#060d14';
+  var dc=parseInt(document.getElementById('slider').value)/255;
+  var gColor='rgba(0,224,96,'+Math.max(0.1,dc)+')';
+  mCtx.strokeStyle=gColor;mCtx.lineWidth=2;mCtx.fill();mCtx.stroke();
+  mCtx.save();mCtx.translate(cx,cy);mCtx.rotate(motorAngle);
+  mCtx.strokeStyle=dc>0.05?'#ffdd00':'rgba(255,221,0,0.1)';mCtx.lineWidth=2.5;
+  mCtx.beginPath();mCtx.moveTo(-r+10,0);mCtx.lineTo(r-10,0);mCtx.stroke();
+  mCtx.beginPath();mCtx.moveTo(0,-r+10);mCtx.lineTo(0,r-10);mCtx.stroke();
+  [0,90,180,270].forEach(function(d){var rad=d*Math.PI/180;mCtx.beginPath();mCtx.arc(Math.cos(rad)*(r-10),Math.sin(rad)*(r-10),3,0,Math.PI*2);mCtx.fillStyle=dc>0.05?'#ffdd00':'rgba(255,221,0,0.1)';mCtx.fill();});
+  mCtx.restore();
+  mCtx.font='bold 12px Syne,monospace';mCtx.fillStyle=gColor;mCtx.textAlign='center';
+  mCtx.fillText('M',cx,cy+4);
+  // Speed indicator
+  var speedTxt=['0%','25%','50%','75%','100%'];
+  var pct=Math.round(parseInt(document.getElementById('slider').value)/255*100);
+  mCtx.font='10px Share Tech Mono';mCtx.fillStyle='#3a6a80';mCtx.textAlign='center';
+  mCtx.fillText(pct+'% duty',cx,cy+r+18);
+}
+
+function loop(){
+  var dc=parseInt(document.getElementById('slider').value)/255;
+  var target=dc*0.12;
+  motorSpeed+=(target-motorSpeed)*0.05;
+  motorAngle+=motorSpeed;
+  drawOsc();drawMotor();
+  rafId=requestAnimationFrame(loop);
+}
+updateSim();loop();
+</script>
+</body>
+</html>

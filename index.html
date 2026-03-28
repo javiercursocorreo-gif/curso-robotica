@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curso de Robótica — Simulación en Tinkercad</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#09100d;--panel:#0d1a10;--panel2:#111f14;
+  --amber:#f0b830;--amber2:#c8950a;
+  --green:#1aaa3a;--green2:#0d7a25;
+  --teal:#00d4cc;--red:#cc2222;
+  --text:#c8e8c2;--textdim:#5a8060;--border:#1e3d22;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px;position:relative;z-index:1;}
+
+/* HEADER */
+header{text-align:center;padding:36px 0 28px;border-bottom:1px solid var(--border);margin-bottom:32px;}
+.htag{font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:10px;}
+h1{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--amber);margin-bottom:8px;}
+.hsub{font-size:13px;color:var(--textdim);margin-bottom:18px;}
+.stats{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;}
+.stat{text-align:center;}
+.stat-n{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--amber);}
+.stat-l{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+
+/* LEYENDA */
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px;
+  background:var(--panel);border:1px solid var(--border);padding:12px 18px;}
+.leg-item{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--textdim);}
+.leg-dot{width:10px;height:10px;border-radius:2px;}
+.leg-dot.p{background:#C55A11;}
+.leg-dot.j{background:#7030A0;}
+.leg-dot.s{background:#1aaa3a;}
+.leg-dot.d{background:#1F3864;}
+
+/* CAPÍTULOS */
+.chapter{margin-bottom:28px;}
+.ch-header{display:flex;align-items:center;gap:14px;padding:12px 18px;
+  background:var(--panel);border:1px solid var(--border);cursor:pointer;
+  transition:border-color .15s;}
+.ch-header:hover{border-color:var(--amber);}
+.ch-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--amber);min-width:36px;}
+.ch-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);flex:1;}
+.ch-count{font-size:11px;color:var(--textdim);}
+.ch-arrow{font-size:14px;color:var(--textdim);transition:transform .2s;}
+.ch-arrow.open{transform:rotate(90deg);}
+.ch-classes{display:none;border:1px solid var(--border);border-top:none;}
+.ch-classes.open{display:block;}
+
+/* CLASES */
+.class-row{border-bottom:1px solid var(--border);padding:12px 18px;}
+.class-row:last-child{border-bottom:none;}
+.class-top{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.class-num{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--amber);min-width:30px;}
+.class-title{font-size:13px;color:var(--text);flex:1;}
+.class-files{display:flex;flex-wrap:wrap;gap:7px;}
+.file-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;text-decoration:none;
+  border:1px solid;border-radius:2px;transition:all .15s;white-space:nowrap;}
+.file-btn:hover{filter:brightness(1.2);}
+.file-btn.practica{border-color:#C55A11;color:#e87040;background:rgba(197,90,17,0.1);}
+.file-btn.juego{border-color:#9050d0;color:#b080e8;background:rgba(112,48,160,0.1);}
+.file-btn.simulacion{border-color:#1aaa3a;color:#40cc60;background:rgba(26,170,58,0.1);}
+.file-btn.prompt{border-color:#3a6aaa;color:#6090cc;background:rgba(31,56,100,0.1);}
+.file-btn.pending{border-color:#333;color:#555;background:transparent;cursor:default;opacity:0.4;}
+.file-btn .icon{font-size:12px;}
+
+/* FOOTER */
+footer{text-align:center;padding:28px 0;border-top:1px solid var(--border);
+  font-size:11px;color:var(--textdim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="htag">// CURSO DE ROBÓTICA — SIMULACIÓN TINKERCAD</div>
+    <h1>Índice de materiales del curso</h1>
+    <p class="hsub">Juegos interactivos y simulaciones animadas — abre directamente en el navegador — abre directamente en el navegador</p>
+    <div class="stats">
+      <div class="stat"><div class="stat-n">65</div><div class="stat-l">CLASES</div></div>
+      <div class="stat"><div class="stat-n">8</div><div class="stat-l">CAPÍTULOS</div></div>
+      <div class="stat"><div class="stat-n">130</div><div class="stat-l">JUEGOS + SIMS</div></div>
+    </div>
+  </header>
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot p"></div>Práctica Word</div>
+    <div class="leg-item"><div class="leg-dot j"></div>Juego interactivo</div>
+    <div class="leg-item"><div class="leg-dot s"></div>Simulación animada</div>
+    <div class="leg-item"><div class="leg-dot d"></div>Prompt IA</div>
+  </div>
+
+  <div id="courseIndex"></div>
+
+  <footer>
+    Robótica · Simulación Tinkercad · Generado con Claude · <span id="year"></span>
+  </footer>
+</div>
+
+<script>
+// ── DATOS DEL CURSO ──────────────────────────────────────────────────────────
+var COURSE = [
+  {
+    num: "0", title: "Marco del curso", color: "#5a8060",
+    classes: [
+      { id: "0.1", title: "Presentación del curso y entorno Tinkercad" },
+      { id: "0.2", title: "Análisis de un sistema tecnológico completo" },
+    ]
+  },
+  {
+    num: "1", title: "Fundamentos de los motores eléctricos", color: "#f0b830",
+    classes: [
+      { id: "1.1", title: "Introducción al motor como elemento de movimiento",
+        practica: "CAPITULO-1/1.1/1.1. PRÁCTICA. Introduccion al motor como actuador.docx",
+        juego: "CAPITULO-1/1.1/1.1.JUEGO.Quiz-Motor-Actuador.html",
+        simulacion: "CAPITULO-1/1.1/1.1.SIMULACION.Motor-DC-con-pulsador.html",
+        promptJ: "CAPITULO-1/1.1/1.1.PROMPT.JUEGO.Quiz-Motor-Actuador.docx",
+        promptS: "CAPITULO-1/1.1/1.1.PROMPT.SIMULACION.Motor-DC-con-pulsador.docx" },
+      { id: "1.2", title: "Control ON/OFF con transistor",
+        practica: "CAPITULO-1/1.2/1.2. PRÁCTICA. Control ON-OFF con transistor.docx",
+        juego: "CAPITULO-1/1.2/1.2.JUEGO.DragDrop-Transistor-NPN.html",
+        simulacion: "CAPITULO-1/1.2/1.2.SIMULACION.Transistor-NPN-BJT-interruptor.html",
+        promptJ: "CAPITULO-1/1.2/1.2.PROMPT.JUEGO.DragDrop-Transistor-NPN.docx",
+        promptS: "CAPITULO-1/1.2/1.2.PROMPT.SIMULACION.Transistor-NPN-BJT-interruptor.docx" },
+      { id: "1.3", title: "Protección del motor: diodo flyback",
+        practica: "CAPITULO-1/1.3/1.3. PRÁCTICA. Proteccion del motor diodo flyback.docx",
+        juego: "CAPITULO-1/1.3/1.3.JUEGO.OrdenarPasos-Diodo-Flyback.html",
+        simulacion: "CAPITULO-1/1.3/1.3.SIMULACION.Diodo-Flyback-pico-tension.html",
+        promptJ: "CAPITULO-1/1.3/1.3.PROMPT.JUEGO.OrdenarPasos-Diodo-Flyback.docx",
+        promptS: "CAPITULO-1/1.3/1.3.PROMPT.SIMULACION.Diodo-Flyback-pico-tension.docx" },
+      { id: "1.4", title: "Control automático ON/OFF (555)",
+        practica: "CAPITULO-1/1.4/1.4. PRÁCTICA. Control automatico ON-OFF motor.docx",
+        juego: "CAPITULO-1/1.4/1.4.JUEGO.OrdenarPasos-NE555-capas.html",
+        simulacion: "CAPITULO-1/1.4/1.4.SIMULACION.Señal-NE555-astable.html",
+        promptJ: "CAPITULO-1/1.4/1.4.PROMPT.JUEGO.OrdenarPasos-NE555-capas.docx",
+        promptS: "CAPITULO-1/1.4/1.4.PROMPT.SIMULACION.Señal-NE555-astable.docx" },
+      { id: "1.5", title: "Control de velocidad por software (PWM)",
+        practica: "CAPITULO-1/1.5/1.5. PRÁCTICA. Control de velocidad por software PWM.docx",
+        juego: "CAPITULO-1/1.5/1.5.JUEGO.EscapeRoom-PWM-Software.html",
+        simulacion: "CAPITULO-1/1.5/1.5.SIMULACION.Laboratorio-PWM-Software.html",
+        promptJ: "CAPITULO-1/1.5/1.5.PROMPT.JUEGO.EscapeRoom-PWM-Software.docx",
+        promptS: "CAPITULO-1/1.5/1.5.PROMPT.SIMULACION.Laboratorio-PWM-Software.docx" },
+      { id: "1.6", title: "Control de velocidad por hardware (555 PWM)",
+        practica: "CAPITULO-1/1.6/1.6. PRÁCTICA. Control velocidad motor hardware PWM 555.docx",
+        juego: "CAPITULO-1/1.6/1.6.JUEGO.Quiz-555-PWM-Hardware.html",
+        simulacion: "CAPITULO-1/1.6/1.6.SIMULACION.NE555-PWM-potenciometro.html",
+        promptJ: "CAPITULO-1/1.6/1.6.PROMPT.JUEGO.Quiz-555-PWM-Hardware.docx",
+        promptS: "CAPITULO-1/1.6/1.6.PROMPT.SIMULACION.NE555-PWM-potenciometro.docx" },
+      { id: "1.7", title: "Cambio de sentido con puente H (L293D)",
+        practica: "CAPITULO-1/1.7/1.7. PRÁCTICA. Cambio sentido giro motor L293D.docx",
+        juego: "CAPITULO-1/1.7/1.7.JUEGO.DragDrop-PuenteH-L293D.html",
+        simulacion: "CAPITULO-1/1.7/1.7.SIMULACION.PuenteH-L293D-posiciones.html",
+        promptJ: "CAPITULO-1/1.7/1.7.PROMPT.JUEGO.DragDrop-PuenteH-L293D.docx",
+        promptS: "CAPITULO-1/1.7/1.7.PROMPT.SIMULACION.PuenteH-L293D-posiciones.docx" },
+    ]
+  },
+  {
+    num: "2", title: "Control avanzado del movimiento", color: "#00d4cc",
+    classes: [
+      { id: "2.1", title: "Control coordinado de dos motores" },
+      { id: "2.2", title: "Movimiento rectilíneo estable" },
+      { id: "2.3", title: "Giro diferencial controlado" },
+      { id: "2.4", title: "Ajuste fino de velocidad" },
+      { id: "2.5", title: "Rampas de aceleración por software" },
+      { id: "2.6", title: "Frenado progresivo" },
+      { id: "2.7", title: "Sincronización de motores" },
+      { id: "2.8", title: "Diagnóstico de errores en sistemas de movimiento" },
+    ]
+  },
+  {
+    num: "3", title: "Robot móvil autónomo", color: "#cc3333",
+    classes: [
+      { id: "3.1", title: "Arquitectura de un robot móvil" },
+      { id: "3.2", title: "Integración de doble motor con puente H" },
+      { id: "3.3", title: "Sensor ultrasónico como sistema de percepción" },
+      { id: "3.4", title: "Detección y evasión básica de obstáculos" },
+      { id: "3.5", title: "Lógica de decisión por condiciones" },
+      { id: "3.6", title: "Máquina de estados básica" },
+      { id: "3.7", title: "Patrón de exploración automática" },
+      { id: "3.8", title: "Optimización de decisiones" },
+      { id: "3.9", title: "Gestión de bloqueos" },
+      { id: "3.10", title: "Sistema móvil autónomo completo" },
+    ]
+  },
+  {
+    num: "4", title: "Brazo robótico funcional", color: "#9050d0",
+    classes: [
+      { id: "4.1", title: "Fundamentos del servo" },
+      { id: "4.2", title: "Control preciso de posición" },
+      { id: "4.3", title: "Coordinación de dos servos" },
+      { id: "4.4", title: "Coordinación de tres servos" },
+      { id: "4.5", title: "Secuencias programadas" },
+      { id: "4.6", title: "Trayectorias suaves" },
+      { id: "4.7", title: "Manipulación básica simulada" },
+      { id: "4.8", title: "Sistema pick & place" },
+      { id: "4.9", title: "Optimización de precisión" },
+      { id: "4.10", title: "Sistema de brazo completo integrado" },
+    ]
+  },
+  {
+    num: "5", title: "Sistema articulado tipo avión", color: "#e87040",
+    classes: [
+      { id: "5.1", title: "Superficies de control" },
+      { id: "5.2", title: "Control independiente de alerones" },
+      { id: "5.3", title: "Control combinado de superficies" },
+      { id: "5.4", title: "Secuencias programadas de vuelo" },
+      { id: "5.5", title: "Ajuste fino de ángulos" },
+      { id: "5.6", title: "Estabilidad simulada por software" },
+      { id: "5.7", title: "Respuesta a perturbaciones" },
+      { id: "5.8", title: "Sistema completo articulado" },
+    ]
+  },
+  {
+    num: "6", title: "Robot explorador avanzado", color: "#40aacc",
+    classes: [
+      { id: "6.1", title: "Arquitectura modular" },
+      { id: "6.2", title: "Integración de sensores múltiples" },
+      { id: "6.3", title: "Comportamiento por prioridades" },
+      { id: "6.4", title: "Máquina de estados avanzada" },
+      { id: "6.5", title: "Patrulla automática" },
+      { id: "6.6", title: "Optimización de decisiones" },
+      { id: "6.7", title: "Gestión de incidencias" },
+      { id: "6.8", title: "Sistema explorador completo" },
+    ]
+  },
+  {
+    num: "7", title: "Robot logístico autónomo tipo Amazon", color: "#f0b830",
+    classes: [
+      { id: "7.1", title: "Arquitectura del sistema logístico" },
+      { id: "7.2", title: "Sistema de movimiento optimizado" },
+      { id: "7.3", title: "Sistema de detección de ubicación" },
+      { id: "7.4", title: "Sistema de manipulación con servo" },
+      { id: "7.5", title: "Coordinación movimiento + recogida" },
+      { id: "7.6", title: "Máquina de estados logística" },
+      { id: "7.7", title: "Gestión de prioridades de pedidos" },
+      { id: "7.8", title: "Optimización de rutas" },
+      { id: "7.9", title: "Gestión de bloqueos y errores" },
+      { id: "7.10", title: "Modo manual / modo automático" },
+      { id: "7.11", title: "Sistema logístico completo integrado" },
+    ]
+  },
+];
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function btn(label, href, type) {
+  if (!href) return '<span class="file-btn pending">'+label+'</span>';
+  return '<a class="file-btn '+type+'" href="'+href+'" target="_blank">'+label+'</a>';
+}
+
+function renderClass(cl) {
+  var files = '';
+  if (cl.juego)     files += btn('🎮 JUEGO', cl.juego, 'juego');
+  if (cl.simulacion)files += btn('🔬 SIMULACIÓN', cl.simulacion, 'simulacion');
+  if (cl.practica)  files += btn('📄 PRÁCTICA', cl.practica, 'practica');
+  if (cl.promptJ)   files += btn('🤖 PROMPT JUEGO', cl.promptJ, 'prompt');
+  if (cl.promptS)   files += btn('🤖 PROMPT SIM', cl.promptS, 'prompt');
+  if (!cl.juego && !cl.simulacion && !cl.practica) {
+    files += '<span class="file-btn pending">⏳ Pendiente de generación</span>';
+  }
+  return '<div class="class-row">'
+    + '<div class="class-top">'
+    + '<span class="class-num">'+cl.id+'</span>'
+    + '<span class="class-title">'+cl.title+'</span>'
+    + '</div>'
+    + '<div class="class-files">'+files+'</div>'
+    + '</div>';
+}
+
+function renderChapter(ch, idx) {
+  var clasesHtml = ch.classes.map(renderClass).join('');
+  var done = ch.classes.filter(function(c){ return c.juego||c.practica; }).length;
+  var total = ch.classes.length;
+  var pct = Math.round(done/total*100);
+  var bar = done === total
+    ? '<span style="color:var(--green)">✓ Completado</span>'
+    : '<span style="color:var(--textdim)">'+done+'/'+total+' clases · '+pct+'%</span>';
+
+  return '<div class="chapter">'
+    + '<div class="ch-header" onclick="toggle('+idx+')" id="hdr-'+idx+'">'
+    + '<span class="ch-num">'+ch.num+'</span>'
+    + '<span class="ch-title">'+ch.title+'</span>'
+    + '<span class="ch-count">'+bar+'</span>'
+    + '<span class="ch-arrow" id="arr-'+idx+'">▶</span>'
+    + '</div>'
+    + '<div class="ch-classes" id="cls-'+idx+'">'+clasesHtml+'</div>'
+    + '</div>';
+}
+
+document.getElementById('courseIndex').innerHTML =
+  COURSE.map(renderChapter).join('');
+
+// Abrir capítulo 1 por defecto
+toggle(1);
+
+function toggle(idx) {
+  var cls = document.getElementById('cls-'+idx);
+  var arr = document.getElementById('arr-'+idx);
+  var open = cls.classList.contains('open');
+  cls.classList.toggle('open', !open);
+  arr.classList.toggle('open', !open);
+}
+
+document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>

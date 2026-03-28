@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.1 Quiz - El motor como actuador</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Special+Elite&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #09100d;
+  --panel: #0d1a10;
+  --panel2: #111f14;
+  --amber: #f0b830;
+  --amber2: #c8950a;
+  --green: #1aaa3a;
+  --green2: #0d7a25;
+  --red: #cc2222;
+  --red2: #991111;
+  --dim: #3a5c3e;
+  --text: #c8e8c2;
+  --textdim: #5a8060;
+  --border: #1e3d22;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  padding: 0;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 3px);
+}
+.page { max-width: 860px; margin: 0 auto; padding: 20px 16px 40px; }
+
+header { text-align: center; padding: 28px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.htag { font-family: 'Orbitron', monospace; font-size: 10px; color: var(--green); letter-spacing: 4px; margin-bottom: 10px; }
+h1 { font-family: 'Orbitron', monospace; font-size: 18px; color: var(--amber); letter-spacing: 2px; line-height: 1.4; }
+.hsub { font-size: 12px; color: var(--textdim); margin-top: 8px; }
+
+.instr {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-left: 3px solid var(--green);
+  padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: var(--textdim); line-height: 1.6;
+}
+.instr span { color: var(--amber); }
+
+.score-bar {
+  display: flex; gap: 16px; margin-bottom: 24px;
+  background: var(--panel); border: 1px solid var(--border); padding: 12px 16px;
+  flex-wrap: wrap;
+}
+.score-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.score-label { font-size: 10px; color: var(--textdim); letter-spacing: 2px; }
+.score-val { font-family: 'Orbitron', monospace; font-size: 22px; }
+.score-val.pts { color: var(--amber); }
+.score-val.ok { color: var(--green); }
+.score-val.fail { color: var(--red); }
+.progress-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 140px; }
+.progress-label { font-size: 10px; color: var(--textdim); }
+.progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); transition: width .4s; }
+
+.question-card {
+  background: var(--panel); border: 1px solid var(--border);
+  padding: 24px 20px; margin-bottom: 16px;
+}
+.q-num { font-size: 10px; color: var(--green); letter-spacing: 3px; margin-bottom: 10px; }
+.q-text { font-family: 'Special Elite', serif; font-size: 17px; color: var(--amber); line-height: 1.55; }
+
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+@media(max-width:580px){ .options { grid-template-columns: 1fr; } }
+
+.opt-btn {
+  background: var(--panel2); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 14px;
+  padding: 14px 16px; text-align: left; cursor: pointer;
+  transition: border-color .15s, background .15s;
+  line-height: 1.4; position: relative;
+}
+.opt-btn:hover:not(:disabled) { border-color: var(--amber2); background: #162018; }
+.opt-btn .opt-key { color: var(--amber); margin-right: 8px; font-family: 'Orbitron', monospace; font-size: 11px; }
+.opt-btn.correct { border-color: var(--green); background: #0a2010; color: #7eff9a; }
+.opt-btn.wrong { border-color: var(--red); background: #1a0808; color: #ff8888; }
+
+.feedback-box {
+  padding: 14px 18px; border-left: 4px solid; font-size: 13px; line-height: 1.6;
+  margin-bottom: 16px; display: none;
+}
+.feedback-box.show { display: block; }
+.feedback-box.ok { border-color: var(--green); background: #071a0a; color: #8effa8; }
+.feedback-box.ko { border-color: var(--red); background: #1a0505; color: #ffaaaa; }
+.feedback-box .fb-title { font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 2px; margin-bottom: 6px; }
+
+.btn-next {
+  display: none; width: 100%; background: var(--green2); border: 1px solid var(--green);
+  color: #fff; font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 2px;
+  padding: 14px; cursor: pointer; transition: background .2s;
+}
+.btn-next:hover { background: var(--green); }
+.btn-next.show { display: block; }
+
+.results-card {
+  display: none; background: var(--panel); border: 1px solid var(--border);
+  padding: 32px 24px; text-align: center;
+}
+.results-card.show { display: block; }
+.res-pct { font-family: 'Orbitron', monospace; font-size: 56px; color: var(--amber); margin-bottom: 8px; }
+.res-title { font-family: 'Special Elite', serif; font-size: 22px; color: var(--green); margin-bottom: 12px; }
+.res-msg { font-size: 14px; color: var(--textdim); line-height: 1.7; margin-bottom: 28px; }
+.res-stats { display: flex; gap: 24px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; }
+.res-stat { text-align: center; }
+.res-stat-val { font-family: 'Orbitron', monospace; font-size: 28px; }
+.res-stat-val.g { color: var(--green); }
+.res-stat-val.r { color: var(--red); }
+.res-stat-val.a { color: var(--amber); }
+.res-stat-label { font-size: 10px; color: var(--textdim); letter-spacing: 2px; margin-top: 2px; }
+.btn-restart {
+  background: var(--amber2); border: 1px solid var(--amber); color: #000;
+  font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 2px;
+  padding: 14px 32px; cursor: pointer; transition: background .2s;
+}
+.btn-restart:hover { background: var(--amber); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>El motor como actuador de un sistema</h1>
+    <p class="hsub">Clase 1.1 — Quiz de conceptos fundamentales</p>
+  </header>
+
+  <div class="instr">
+    <span>Instrucciones:</span> Lee cada pregunta y pulsa la opción correcta.
+    <span>+100 pts</span> en primer intento · <span>+50 pts</span> en reintento · <span>−10 pts</span> en fallo · mínimo 0 pts.
+    El feedback permanece visible hasta la siguiente pregunta.
+  </div>
+
+  <div class="score-bar">
+    <div class="score-item"><span class="score-label">PUNTOS</span><span class="score-val pts" id="pts">0</span></div>
+    <div class="score-item"><span class="score-label">ACIERTOS</span><span class="score-val ok" id="ok">0</span></div>
+    <div class="score-item"><span class="score-label">FALLOS</span><span class="score-val fail" id="fail">0</span></div>
+    <div class="progress-wrap">
+      <div class="progress-label" id="prog-label">Pregunta 1 de 10</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div id="gameArea">
+    <div class="question-card">
+      <div class="q-num" id="q-num">PREGUNTA 01 / 10</div>
+      <div class="q-text" id="q-text"></div>
+    </div>
+    <div class="options" id="options"></div>
+    <div class="feedback-box" id="feedback">
+      <div class="fb-title" id="fb-title"></div>
+      <div id="fb-msg"></div>
+    </div>
+    <button class="btn-next" id="btn-next" onclick="nextQ()">SIGUIENTE PREGUNTA ›</button>
+  </div>
+
+  <div class="results-card" id="resultsCard">
+    <div class="res-pct" id="res-pct"></div>
+    <div class="res-title" id="res-title"></div>
+    <div class="res-msg" id="res-msg"></div>
+    <div class="res-stats">
+      <div class="res-stat"><div class="res-stat-val a" id="r-pts"></div><div class="res-stat-label">PUNTOS</div></div>
+      <div class="res-stat"><div class="res-stat-val g" id="r-ok"></div><div class="res-stat-label">ACIERTOS</div></div>
+      <div class="res-stat"><div class="res-stat-val r" id="r-fail"></div><div class="res-stat-label">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+
+<script>
+var QUESTIONS = [
+  {
+    q: "¿Qué es un actuador en un sistema tecnológico?",
+    opts: ["El elemento que transforma una señal eléctrica en un efecto físico observable",
+           "El componente que genera la señal eléctrica de control",
+           "La resistencia que limita la corriente en el circuito",
+           "El cable que une la pila con el motor"],
+    correct: 0,
+    fb: "El actuador es el elemento final del sistema: transforma la señal eléctrica en movimiento, luz, sonido u otro efecto físico. El motor DC es un ejemplo de actuador que produce movimiento rotatorio."
+  },
+  {
+    q: "¿Por qué el motor de corriente continua es un actuador más complejo que un LED?",
+    opts: ["Porque el LED consume más corriente que el motor",
+           "Porque el motor transforma la electricidad en movimiento, introduciendo carga mecánica y corriente variable",
+           "Porque el motor necesita siempre Arduino para funcionar",
+           "Porque el LED no puede conectarse a una pila de 9 V"],
+    correct: 1,
+    fb: "El LED solo produce luz y su comportamiento es muy predecible. El motor genera movimiento físico, lo que introduce conceptos nuevos como inercia, carga mecánica y picos de corriente que no aparecen con un simple LED."
+  },
+  {
+    q: "En el circuito de la clase 1.1, ¿qué ocurre cuando se suelta el pulsador?",
+    opts: ["El motor sigue girando hasta detenerse poco a poco",
+           "El LED se enciende y el motor se apaga",
+           "El motor y el LED se apagan simultáneamente",
+           "Solo el LED se apaga; el motor sigue funcionando"],
+    correct: 2,
+    fb: "Al soltar el pulsador se interrumpe el circuito completo. Tanto el motor como el LED se apagan al mismo tiempo porque ambos dependen de la misma señal que proporciona el pulsador."
+  },
+  {
+    q: "¿Qué función cumple la resistencia R1 (220 Ω) en el circuito de la clase 1.1?",
+    opts: ["Aumentar la velocidad del motor",
+           "Proteger el LED limitando la corriente que pasa por él",
+           "Almacenar energía para cuando se suelta el pulsador",
+           "Conectar el motor al carril negativo de la protoboard"],
+    correct: 1,
+    fb: "R1 limita la corriente que circula por el LED. Sin ella, el LED recibiría demasiada corriente de la pila de 9 V y podría dañarse o quemarse. En Tinkercad puede funcionar sin R1, pero en un sistema real es imprescindible."
+  },
+  {
+    q: "¿Qué representa el LED en el sistema del circuito de la clase 1.1?",
+    opts: ["El actuador principal del sistema",
+           "Un indicador visual que confirma que el sistema está en marcha",
+           "La fuente de alimentación del motor",
+           "Un componente que protege el motor de sobrecargas"],
+    correct: 1,
+    fb: "El LED actúa como indicador de estado del sistema. Cuando el pulsador está presionado y el sistema está activo, el LED se enciende confirmando visualmente que hay tensión en el circuito."
+  },
+  {
+    q: "¿Qué ocurre si se intercambian los dos cables del motor en el circuito?",
+    opts: ["El motor deja de funcionar permanentemente",
+           "El LED se apaga aunque el pulsador esté presionado",
+           "El motor gira en sentido contrario",
+           "La pila se descarga más rápido"],
+    correct: 2,
+    fb: "Un motor DC cambia de sentido de giro cuando se invierte la polaridad aplicada a sus terminales. Si se intercambian el cable positivo y el negativo, la corriente circula en sentido contrario y el motor gira al revés."
+  },
+  {
+    q: "¿Por qué se dice que el circuito de la clase 1.1 'no tiene memoria'?",
+    opts: ["Porque el motor olvida la velocidad a la que giraba",
+           "Porque el motor solo funciona mientras se mantiene presionado el pulsador",
+           "Porque el LED no guarda la información del estado anterior",
+           "Porque la pila pierde energía cada vez que se pulsa"],
+    correct: 1,
+    fb: "Un circuito sin memoria requiere que la señal de control sea continua. En cuanto se suelta el pulsador, el motor se para. No hay ningún elemento que mantenga el estado encendido por sí solo. Esta limitación se resuelve en clases posteriores."
+  },
+  {
+    q: "En el sistema de la puerta automática de un supermercado, ¿qué papel tiene el motor?",
+    opts: ["Genera la señal eléctrica que detecta a la persona",
+           "Decide si la puerta debe abrirse o no",
+           "Transforma la señal eléctrica en movimiento físico de la puerta",
+           "Almacena la energía necesaria para abrir la puerta"],
+    correct: 2,
+    fb: "El motor es el actuador del sistema. El sensor detecta a la persona, el sistema de control decide abrir la puerta, y el motor transforma la señal eléctrica en el movimiento real que desplaza las hojas de la puerta."
+  },
+  {
+    q: "¿Cuál de estas afirmaciones sobre Tinkercad es correcta respecto al motor?",
+    opts: ["Tinkercad simula exactamente la inercia y el arranque real del motor",
+           "Tinkercad simula el motor de forma idealizada: arranca y se detiene instantáneamente",
+           "Tinkercad no permite conectar motores DC en los circuitos",
+           "Tinkercad simula los picos de corriente al arrancar el motor"],
+    correct: 1,
+    fb: "Tinkercad simplifica el comportamiento del motor para facilitar el aprendizaje. En la realidad el motor tarda un instante en arrancar y en detenerse, y consume más corriente al arrancar. Estas diferencias se irán comentando a lo largo del curso."
+  },
+  {
+    q: "¿Qué limitación importante tiene el circuito básico de la clase 1.1?",
+    opts: ["Solo puede funcionar con pilas de 9 V, no con otras tensiones",
+           "No puede controlar la velocidad, no protege el transistor ni puede invertir el sentido automáticamente",
+           "El LED consume demasiada corriente y apaga el motor",
+           "El pulsador se rompe si se pulsa más de 10 veces seguidas"],
+    correct: 1,
+    fb: "El circuito de la clase 1.1 es el punto de partida. Solo permite encender y apagar el motor manualmente, siempre a máxima velocidad y en un solo sentido. Las mejoras (transistor, diodo, NE555, Arduino) se introducirán en las clases siguientes."
+  }
+];
+
+var state = {
+  current: 0, pts: 0, ok: 0, fail: 0,
+  answered: false, firstTry: true, usedRetry: false
+};
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length-1; i > 0; i--) {
+    var j = Math.floor(Math.random()*(i+1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+var order = [];
+var qOrder = [];
+
+function init() {
+  order = shuffle([0,1,2,3,4,5,6,7,8,9]);
+  qOrder = order;
+  state = { current:0, pts:0, ok:0, fail:0, answered:false, firstTry:true, usedRetry:false };
+  document.getElementById('resultsCard').classList.remove('show');
+  document.getElementById('gameArea').style.display = '';
+  renderQ();
+}
+
+function renderQ() {
+  var qi = qOrder[state.current];
+  var Q = QUESTIONS[qi];
+  state.answered = false;
+  state.firstTry = true;
+
+  document.getElementById('q-num').textContent = 'PREGUNTA ' + String(state.current+1).padStart(2,'0') + ' / 10';
+  document.getElementById('q-text').textContent = Q.q;
+  document.getElementById('prog-label').textContent = 'Pregunta ' + (state.current+1) + ' de 10';
+  document.getElementById('prog-fill').style.width = (state.current/10*100) + '%';
+
+  // Build shuffled options with letter mapping
+  var letters = ['A','B','C','D'];
+  var indices = shuffle([0,1,2,3]);
+  var container = document.getElementById('options');
+  container.innerHTML = '';
+
+  for (var i = 0; i < 4; i++) {
+    var idx = indices[i];
+    var btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.setAttribute('data-idx', idx);
+    btn.innerHTML = '<span class="opt-key">' + letters[i] + '.</span>' + Q.opts[idx];
+    btn.onclick = (function(b, optIdx) {
+      return function() { selectOpt(b, optIdx); };
+    })(btn, idx);
+    container.appendChild(btn);
+  }
+
+  var fb = document.getElementById('feedback');
+  fb.classList.remove('show','ok','ko');
+  document.getElementById('btn-next').classList.remove('show');
+  updateScore();
+}
+
+function selectOpt(btn, optIdx) {
+  if (state.answered) return;
+  var qi = qOrder[state.current];
+  var Q = QUESTIONS[qi];
+  var correct = optIdx === Q.correct;
+
+  if (correct) {
+    state.answered = true;
+    btn.classList.add('correct');
+    // Highlight correct on all buttons
+    var allBtns = document.querySelectorAll('.opt-btn');
+    allBtns.forEach(function(b){ b.disabled = true; });
+
+    var earned = state.firstTry ? 100 : 50;
+    state.pts = Math.max(0, state.pts + earned);
+    state.ok++;
+
+    showFeedback(true, state.firstTry ? '✓ CORRECTO — +' + earned + ' pts' : '✓ CORRECTO EN REINTENTO — +' + earned + ' pts', Q.fb);
+    setTimeout(function(){ document.getElementById('btn-next').classList.add('show'); }, 1800);
+  } else {
+    state.firstTry = false;
+    state.pts = Math.max(0, state.pts - 10);
+    state.fail++;
+    btn.classList.add('wrong');
+    btn.disabled = true;
+    showFeedback(false, '✗ INCORRECTO — −10 pts', 'Esa no es la respuesta correcta. Piénsalo de nuevo y prueba con otra opción.');
+    updateScore();
+  }
+  updateScore();
+}
+
+function showFeedback(ok, title, msg) {
+  var fb = document.getElementById('feedback');
+  fb.classList.remove('show','ok','ko');
+  document.getElementById('fb-title').textContent = title;
+  document.getElementById('fb-msg').textContent = msg;
+  fb.classList.add('show', ok ? 'ok' : 'ko');
+}
+
+function updateScore() {
+  document.getElementById('pts').textContent = state.pts;
+  document.getElementById('ok').textContent = state.ok;
+  document.getElementById('fail').textContent = state.fail;
+}
+
+function nextQ() {
+  state.current++;
+  if (state.current >= 10) { showResults(); return; }
+  document.getElementById('btn-next').classList.remove('show');
+  renderQ();
+}
+
+function showResults() {
+  document.getElementById('gameArea').style.display = 'none';
+  var card = document.getElementById('resultsCard');
+  card.classList.add('show');
+  var maxPts = 1000;
+  var pct = Math.round(state.pts / maxPts * 100);
+  pct = Math.min(100, Math.max(0, pct));
+  document.getElementById('res-pct').textContent = pct + '%';
+  document.getElementById('r-pts').textContent = state.pts;
+  document.getElementById('r-ok').textContent = state.ok;
+  document.getElementById('r-fail').textContent = state.fail;
+
+  var title, msg;
+  if (pct >= 85) {
+    title = '🏆 Resultado sobresaliente';
+    msg = 'Dominas los conceptos fundamentales del motor como actuador. Estás perfectamente preparado para la clase 1.2.';
+  } else if (pct >= 65) {
+    title = '✅ Resultado superado';
+    msg = 'Buen trabajo. Has comprendido los conceptos principales. Repasa los puntos donde fallaste antes de continuar.';
+  } else if (pct >= 45) {
+    title = '📖 Buen intento';
+    msg = 'Vas por buen camino. Te recomendamos repasar la teoría de la clase 1.1 y volver a intentarlo.';
+  } else {
+    title = '💪 ¡Ánimo!';
+    msg = 'No te preocupes. Repasa la teoría con calma y vuelve a intentarlo. Cada intento te acerca más al objetivo.';
+  }
+  document.getElementById('res-title').textContent = title;
+  document.getElementById('res-msg').textContent = msg;
+  document.getElementById('prog-fill').style.width = '100%';
+  document.getElementById('prog-label').textContent = '¡Quiz completado!';
+}
+
+function restart() {
+  init();
+}
+
+init();
+</script>
+</body>
+</html>

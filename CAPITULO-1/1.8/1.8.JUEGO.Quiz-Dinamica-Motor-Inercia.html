@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.8 Juego - Dinámica del motor: inercia y carga</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09100d;--panel:#0d1a10;--panel2:#111f14;--amber:#f0b830;--amber2:#c8950a;--green:#1aaa3a;--red:#cc2222;--text:#c8e8c2;--textdim:#5a8060;--border:#1e3d22;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);}
+.page{max-width:860px;margin:0 auto;padding:20px 16px 40px;position:relative;z-index:0;}
+header{text-align:center;padding:26px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.htag{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+h1{font-family:'Orbitron',monospace;font-size:17px;color:var(--amber);letter-spacing:2px;line-height:1.4;}
+.hsub{font-size:12px;color:var(--textdim);margin-top:6px;}
+.instr{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--amber);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--textdim);line-height:1.6;}
+.instr span{color:var(--amber);}
+.score-bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);padding:12px 16px;margin-bottom:24px;}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sl{font-size:10px;color:var(--textdim);letter-spacing:2px;}
+.sv{font-family:'Orbitron',monospace;font-size:22px;}
+.sv.pts{color:var(--amber);}.sv.ok{color:var(--green);}.sv.fail{color:var(--red);}
+.pw{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:120px;}
+.pl{font-size:10px;color:var(--textdim);}
+.pb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pf{height:100%;background:var(--amber);transition:width .4s;}
+.q-card{background:var(--panel);border:1px solid var(--border);padding:22px 18px;margin-bottom:16px;}
+.q-num{font-size:10px;color:var(--amber);letter-spacing:3px;margin-bottom:10px;}
+.q-text{font-family:'Orbitron',monospace;font-size:15px;color:var(--amber);line-height:1.55;}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+@media(max-width:540px){.opts{grid-template-columns:1fr;}}
+.opt{background:var(--panel2);border:1.5px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:13px 15px;text-align:left;cursor:pointer;transition:border-color .15s,background .15s;line-height:1.4;}
+.opt:hover:not(:disabled){border-color:var(--amber);background:#1a1500;}
+.opt .ltr{color:var(--amber);margin-right:6px;font-weight:bold;font-size:11px;}
+.opt.correct{border-color:var(--green);background:#071a0a;color:#7eff9a;}
+.opt.wrong{border-color:var(--red);background:#1a0505;color:#ff8888;}
+.fb-box{padding:13px 17px;border-left:4px solid;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+.fb-box.show{display:block;}
+.fb-box.ok{border-color:var(--green);background:#071a0a;color:#7eff9a;}
+.fb-box.ko{border-color:var(--red);background:#1a0505;color:#ff8888;}
+.fb-title{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;font-weight:700;margin-bottom:5px;}
+.btn-next{display:none;width:100%;background:var(--amber2);border:1px solid var(--amber);color:#000;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px;cursor:pointer;transition:background .2s;margin-bottom:10px;}
+.btn-next:hover{background:var(--amber);}
+.btn-next.show{display:block;}
+.results-card{display:none;background:var(--panel);border:1px solid var(--border);padding:32px 24px;text-align:center;}
+.results-card.show{display:block;}
+.res-pct{font-family:'Orbitron',monospace;font-size:56px;color:var(--amber);margin-bottom:8px;}
+.res-title{font-family:'Orbitron',monospace;font-size:20px;color:var(--green);margin-bottom:12px;}
+.res-msg{font-size:14px;color:var(--textdim);line-height:1.7;margin-bottom:28px;}
+.res-stats{display:flex;gap:24px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.rs{text-align:center;}.rsv{font-family:'Orbitron',monospace;font-size:28px;}
+.g{color:var(--green);}.r{color:var(--red);}.a{color:var(--amber);}
+.rsl{font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px;}
+.btn-restart{background:var(--amber2);border:1px solid var(--amber);color:#000;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;padding:14px 32px;cursor:pointer;}
+.btn-restart:hover{background:var(--amber);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="htag">// CURSO ROBÓTICA — CAPÍTULO 1</div>
+    <h1>Dinámica real del motor: inercia y carga</h1>
+    <p class="hsub">Clase 1.8 — Quiz de conceptos</p>
+  </header>
+  <div class="instr"><span>Instrucciones:</span> Lee cada pregunta y selecciona la opción correcta. <span>+100 pts</span> primer intento · <span>+50 pts</span> reintento · <span>−10 pts</span> fallo.</div>
+  <div class="score-bar">
+    <div class="si"><span class="sl">PUNTOS</span><span class="sv pts" id="pts">0</span></div>
+    <div class="si"><span class="sl">ACIERTOS</span><span class="sv ok" id="ok">0</span></div>
+    <div class="si"><span class="sl">FALLOS</span><span class="sv fail" id="fail">0</span></div>
+    <div class="pw"><div class="pl" id="pl">Pregunta 1 de 10</div><div class="pb"><div class="pf" id="pf" style="width:0%"></div></div></div>
+  </div>
+  <div id="gameArea">
+    <div class="q-card"><div class="q-num" id="qnum">PREGUNTA 01 / 10</div><div class="q-text" id="qtext"></div></div>
+    <div class="opts" id="opts"></div>
+    <div class="fb-box" id="fb"><div class="fb-title" id="fbt"></div><div id="fbm"></div></div>
+    <button class="btn-next" id="btnNext" onclick="nextQ()">SIGUIENTE PREGUNTA ›</button>
+  </div>
+  <div class="results-card" id="rc">
+    <div class="res-pct" id="rpct"></div>
+    <div class="res-title" id="rtitle"></div>
+    <div class="res-msg" id="rmsg"></div>
+    <div class="res-stats">
+      <div class="rs"><div class="rsv a" id="rpts"></div><div class="rsl">PUNTOS</div></div>
+      <div class="rs"><div class="rsv g" id="rok"></div><div class="rsl">ACIERTOS</div></div>
+      <div class="rs"><div class="rsv r" id="rfail"></div><div class="rsl">FALLOS</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">⟳ VOLVER A INTENTARLO</button>
+  </div>
+</div>
+<script>
+var QS=[
+  {q:"¿Por qué un motor real consume más corriente en el momento del arranque que durante el funcionamiento normal?",
+   opts:["Porque el transistor aún no está saturado y limita la corriente","Porque debe vencer la inercia mecánica y la resistencia inicial de la carga, lo que requiere más fuerza y por tanto más corriente","Porque el diodo flyback bloquea parte de la corriente al inicio","Porque la pila está a plena carga y suministra más energía"],
+   c:1,fb:"En el arranque el motor debe acelerar desde cero: necesita fuerza extra para vencer la inercia del rotor y la resistencia estática de la carga. Esta fuerza extra se traduce en una mayor demanda de corriente, que puede ser 3-7 veces la corriente nominal."},
+  {q:"¿Qué ocurre con un motor real cuando se corta la alimentación bruscamente?",
+   opts:["Se detiene instantáneamente porque ya no recibe energía","Continúa girando durante un breve tiempo debido a la inercia mecánica acumulada","Invierte el sentido de giro automáticamente","Genera una corriente negativa que puede dañar el transistor"],
+   c:1,fb:"La inercia mecánica es la tendencia de un objeto en movimiento a seguir moviéndose. El rotor del motor tiene masa y velocidad, por lo que almacena energía cinética. Al cortar la alimentación esa energía se disipa gradualmente en rozamiento, manteniendo el giro brevemente."},
+  {q:"¿Cómo afecta añadir carga mecánica (por ejemplo, conectar una rueda) al comportamiento del motor?",
+   opts:["El motor gira más rápido porque tiene más inercia","El motor necesita más corriente para mantener la misma velocidad y tarda más en acelerar","El motor gira igual porque el transistor regula la corriente automáticamente","La carga solo afecta a la parada, no al arranque"],
+   c:1,fb:"La carga mecánica opone resistencia al giro. Para vencer esa resistencia y mantener la velocidad, el motor necesita más par, lo que se traduce en mayor corriente. El tiempo de aceleración también aumenta porque hay más masa que acelerar."},
+  {q:"¿Qué es una rampa de aceleración en el contexto de control de motores?",
+   opts:["Una resistencia variable que limita la corriente del motor","Aumentar la velocidad progresivamente (de 0 a máximo) en lugar de aplicar la potencia máxima de golpe","Un ciclo PWM con duty cycle del 50% fijo","El tiempo que tarda el diodo flyback en absorber el pico de tensión"],
+   c:1,fb:"Una rampa de aceleración consiste en subir el valor de analogWrite() gradualmente, paso a paso, en lugar de pasar directamente de 0 a 255. Esto reduce la corriente de arranque, protege los componentes y produce un movimiento más suave y controlado."},
+  {q:"¿Por qué Tinkercad no muestra la inercia del motor al simular?",
+   opts:["Porque Tinkercad no soporta motores DC, solo LEDs y resistencias","Porque el modelo de motor en Tinkercad es idealizado: responde instantáneamente a cambios de señal sin simular efectos mecánicos","Porque la inercia depende del código Arduino y Tinkercad no ejecuta código real","Porque el diodo flyback anula el efecto de inercia en la simulación"],
+   c:1,fb:"Tinkercad utiliza modelos simplificados de los componentes. El motor DC en Tinkercad es puramente eléctrico: gira cuando hay señal y se detiene cuando no la hay, sin ningún efecto mecánico como masa, rozamiento o inercia. Es útil para aprender el control eléctrico, pero no reproduce el comportamiento físico real."},
+  {q:"Un ascensor arranca y los pasajeros notan un tirón brusco. ¿Cuál es la causa más probable?",
+   opts:["El transistor de control está defectuoso y aplica demasiada corriente","El sistema aplica potencia máxima al motor de golpe, sin rampa de aceleración, causando una aceleración brusca","El diodo flyback no está instalado y genera un pico de tensión","La pila está agotada y no suministra suficiente corriente"],
+   c:1,fb:"Sin rampa de aceleración, el motor pasa de 0 a máxima velocidad instantáneamente. Esto produce una aceleración muy alta que los pasajeros perciben como un tirón. Los ascensores modernos usan variadores de frecuencia que aplican aceleración progresiva para conseguir un arranque suave."},
+  {q:"¿Qué ventaja tiene usar una rampa de aceleración frente al arranque brusco?",
+   opts:["El motor alcanza la velocidad máxima más rápido","Reduce la corriente de arranque, protege los componentes y produce un movimiento más suave","El motor gira en ambos sentidos automáticamente","Permite usar una pila de menor tensión"],
+   c:1,fb:"La rampa de aceleración tiene tres ventajas principales: 1) reduce la corriente pico de arranque (protege transistor, pila y motor), 2) reduce el estrés mecánico (prolonga la vida del motor y la carga), y 3) produce un movimiento más suave y controlado, especialmente importante en sistemas con pasajeros o cargas frágiles."},
+  {q:"En el código de la clase 1.8, ¿qué hace el bucle 'for (int v = 0; v <= 255; v += 5)'?",
+   opts:["Gira el motor durante 255 milisegundos","Aumenta progresivamente el duty cycle del PWM de 0 a 255 en pasos de 5, implementando una rampa de aceleración","Alterna el sentido de giro del motor 255 veces","Reduce la velocidad del motor de 255 a 0"],
+   c:1,fb:"El bucle for incrementa la variable v de 0 a 255 en pasos de 5. Cada iteración llama a analogWrite(pinEnable, v) que establece el duty cycle en ese valor. Con un delay(30) entre iteraciones, la velocidad sube suavemente en ~1,5 segundos en lugar de de golpe."},
+  {q:"¿Qué diferencia fundamental existe entre el modelo de motor de Tinkercad y un motor real?",
+   opts:["El motor real es más silencioso que el de Tinkercad","El motor real tiene inercia, masa, fricción y variación de velocidad con la carga; el de Tinkercad es ideal y responde instantáneamente","El motor de Tinkercad consume más corriente que uno real","No hay diferencia: Tinkercad simula exactamente el comportamiento real"],
+   c:1,fb:"El motor real es un objeto físico con masa (inercia), fricción mecánica y una relación entre par y velocidad que depende de la carga. El de Tinkercad es un modelo matemático simplificado que solo reproduce la relación eléctrica básica: más señal = más velocidad, sin ningún efecto físico."},
+  {q:"¿En qué situación real es más importante controlar la corriente de arranque de un motor?",
+   opts:["Cuando el motor controla un LED indicador","Cuando el motor mueve una carga pesada como un ascensor, una grúa o un coche eléctrico","Cuando el motor está en vacío y no mueve ninguna carga","Cuando se usa un transistor en lugar del L293D"],
+   c:1,fb:"Cuanto mayor es la carga que mueve el motor, mayor es la corriente de arranque. En sistemas industriales como ascensores, grúas o coches eléctricos, los picos de corriente de arranque sin control pueden dañar la electrónica, sobrecargar la fuente de alimentación o producir movimientos peligrosos."}
+];
+var state={cur:0,pts:0,ok:0,fail:0,firstTry:true,answered:false};
+var qOrder=[];
+function shuffle(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function init(){state={cur:0,pts:0,ok:0,fail:0};qOrder=shuffle([0,1,2,3,4,5,6,7,8,9]);document.getElementById('rc').classList.remove('show');document.getElementById('gameArea').style.display='';renderQ();}
+function renderQ(){
+  state.answered=false;state.firstTry=true;
+  var qi=qOrder[state.cur];var Q=QS[qi];
+  document.getElementById('qnum').textContent='PREGUNTA '+String(state.cur+1).padStart(2,'0')+' / 10';
+  document.getElementById('qtext').textContent=Q.q;
+  document.getElementById('pl').textContent='Pregunta '+(state.cur+1)+' de 10';
+  document.getElementById('pf').style.width=((state.cur/10)*100)+'%';
+  var letters=['A','B','C','D'];
+  var idxs=shuffle([0,1,2,3]);
+  var optsEl=document.getElementById('opts');optsEl.innerHTML='';
+  idxs.forEach(function(oi,pos){
+    var btn=document.createElement('button');btn.className='opt';
+    btn.innerHTML='<span class="ltr">'+letters[pos]+'.</span>'+Q.opts[oi];
+    btn.onclick=(function(b,i){return function(){selectOpt(b,i);};})(btn,oi);
+    optsEl.appendChild(btn);
+  });
+  document.getElementById('fb').classList.remove('show','ok','ko');
+  document.getElementById('btnNext').classList.remove('show');
+  updateScore();
+}
+function selectOpt(btn,oi){
+  if(state.answered)return;
+  var qi=qOrder[state.cur];var Q=QS[qi];
+  if(oi===Q.c){
+    state.answered=true;
+    document.querySelectorAll('.opt').forEach(function(b){b.disabled=true;});
+    btn.classList.add('correct');
+    var earned=state.firstTry?100:50;
+    state.pts=Math.max(0,state.pts+earned);state.ok++;
+    showFb(true,'✓ CORRECTO — +'+earned+' pts',Q.fb);
+    setTimeout(function(){document.getElementById('btnNext').classList.add('show');},1800);
+  } else {
+    state.firstTry=false;state.pts=Math.max(0,state.pts-10);state.fail++;
+    btn.classList.add('wrong');btn.disabled=true;
+    showFb(false,'✗ INCORRECTO — −10 pts','Esa no es la respuesta correcta. Analiza la pregunta de nuevo y prueba con otra opción.');
+  }
+  updateScore();
+}
+function showFb(ok,t,m){var fb=document.getElementById('fb');fb.classList.remove('show','ok','ko');document.getElementById('fbt').textContent=t;document.getElementById('fbm').textContent=m;fb.classList.add('show',ok?'ok':'ko');}
+function updateScore(){document.getElementById('pts').textContent=state.pts;document.getElementById('ok').textContent=state.ok;document.getElementById('fail').textContent=state.fail;}
+function nextQ(){state.cur++;document.getElementById('btnNext').classList.remove('show');if(state.cur>=10){showResults();return;}renderQ();}
+function showResults(){
+  document.getElementById('gameArea').style.display='none';document.getElementById('rc').classList.add('show');
+  var pct=Math.min(100,Math.max(0,Math.round(state.pts/1000*100)));
+  document.getElementById('rpct').textContent=pct+'%';document.getElementById('rpts').textContent=state.pts;
+  document.getElementById('rok').textContent=state.ok;document.getElementById('rfail').textContent=state.fail;
+  var t,m;
+  if(pct>=85){t='🏆 Resultado sobresaliente';m='Comprendes perfectamente la dinámica real del motor. Has terminado el Capítulo 1.';}
+  else if(pct>=65){t='✅ Resultado superado';m='Buen trabajo. Repasa los conceptos de inercia y corriente de arranque antes de continuar.';}
+  else if(pct>=45){t='📖 Buen intento';m='Repasa la teoría de la clase 1.8, especialmente la diferencia entre el modelo Tinkercad y el motor real.';}
+  else{t='💪 ¡Ánimo!';m='Repasa la teoría con calma y vuelve a intentarlo.';}
+  document.getElementById('rtitle').textContent=t;document.getElementById('rmsg').textContent=m;
+  document.getElementById('pf').style.width='100%';document.getElementById('pl').textContent='¡Completado!';
+}
+function restart(){init();}
+init();
+</script>
+</body>
+</html>
